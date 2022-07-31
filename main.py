@@ -18,36 +18,65 @@ def appStarted(app):
     app.enemy2 = Enemy(app, 'Enemy2', x2, y2, 0, 0)
     app.enemy3 = Enemy(app, 'Enemy3', x3, y3, 0, 0)
     app.enemy4 = Enemy(app, 'Enemy4', x4, y4, 0, 0)
-    app.player = Player(app, 'Player', x5, y5, 0, 0)
-    app.cars = [app.player, app.enemy1, app.enemy2, app.enemy3, app.enemy4]
+    app.player = Player(app, 'Player', 640, 360, 0, 0)
+    app.cars = [app.player]
     app.timerDelay = 1000//60
     # track image
     track = app.loadImage("images/monacoTrack.jpeg")
     track = app.scaleImage(track, 1)
     app.track = ImageTk.PhotoImage(track)
+    
+    # scrolling 
+    app.cx, app.cy = 640, 360
+    app.direction = None
 
 def redrawAll(app, canvas):
+    scrolling(app, canvas)
+    # make HUD relative to car to stay on screen
+    canvas.configure(xscrollincrement=1)
+    canvas.configure(yscrollincrement=1)
+    canvas.configure(scrollregion = (0, 0, 5000, 5000))
+    # scrolling(app, canvas)
     if app.screen == "selection":
         canvas.create_image(app.width//2, app.height//2, image=app.track)
-        canvas.create_line(app.map.mapShapes, fill="grey", width=40) # 40
         app.map.draw(canvas)
     else:
-        canvas.create_line(app.map.trackLine, fill="grey", width=245)
-        # * Dashed line is glitched 
-        canvas.create_line(app.map.trackLine, fill="black", width=3)
-        canvas.create_line(app.map.exteriorWall, fill="black", width=10)
-        canvas.create_line(app.map.interiorWall, fill="black", width=10)
+        # canvas.create_polygon(app.map.seaLine, fill="lightGrey")
+        # canvas.create_line(app.map.trackLine, fill="grey", width=245)
+        # # * Dashed line is glitched 
+        # canvas.create_line(app.map.trackLine, fill="black", width=3)
+        # canvas.create_line(app.map.exteriorWall, fill="black", width=10)
+        # canvas.create_line(app.map.interiorWall, fill="black", width=10)
+        for l in app.map.mapShapes:
+            canvas.create_line(l)
         for car in app.cars:
             car.draw(app, canvas)
-        app.enemy1.visualizeSelfDrive(app, canvas)
-        canvas.scale(ALL, app.player.x, app.player.y, 6, 6)
+        # app.enemy1.visualizeSelfDrive(app, canvas)
+        # canvas.scale(ALL, app.player.x, app.player.y, 2, 2)
+        r = 3
+        canvas.create_oval(app.cx-r, app.cy-r, app.cx+r, app.cy+r, fill="black")
+
+def scrolling(app, canvas):
+    # if app.direction == "left":
+    #     canvas.xview_scroll(-5, "units")
+    # elif app.direction == "right":
+    #     canvas.xview_scroll(5, "units")
+    # elif app.direction == "up":
+    #     canvas.yview_scroll(-5, "units")
+    #     print('up')
+    # elif app.direction == "down":
+    #     canvas.yview_scroll(5, "units")
+    pass
 
 def mousePressed(app, event):
-    print(event.x, event.y)
+    
     if app.screen == "selection":
         app.map.input("mousePress", (event.x, event.y))
 
 def timerFired(app):
+    app.cx += app.player.xChange
+    app.cy += app.player.yChange
+    print((app.cx, app.cy))
     if app.screen == "selection":
         pass
     else:
@@ -67,6 +96,11 @@ def keyPressed(app, event):
         if event.key == "w": app.player.pressedW()
         if event.key == "a": app.player.pressedA()
         if event.key == "d": app.player.pressedD()
+        # scrolling
+        if event.key == "Left": app.direction = "left"
+        if event.key == "Right": app.direction = "right"
+        if event.key == "Up": app.direction = "up"
+        if event.key == "Down": app.direction = "down"
 
 def keyReleased(app, event):
     if app.screen == "selection":
@@ -75,6 +109,11 @@ def keyReleased(app, event):
         if event.key == "w": app.player.releasedW()
         if event.key == "a": app.player.releasedA()
         if event.key == "d": app.player.releasedD()
+        # scrolling
+        if event.key == "Left": app.direction = None
+        if event.key == "Right": app.direction = None
+        if event.key == "Up": app.direction = None
+        if event.key == "Down": app.direction = None
 
 #####
 # CAR
@@ -103,8 +142,14 @@ class Car:
         self.xWall, self.yWall = None, None
         self.collisionType = "None"
         self.collidedCar = None
+        
+        # scrolling
+        self.xChange, self.yChange = 0, 0
     
     def draw(self, app, canvas):
+        # scrolling
+        # * find distance from (0, 0) to car center 
+        
         canvas.create_polygon(self.position, fill="blue")
         if self.name == "Player":
             canvas.create_text(app.width//2, app.height-50, text=f"{self.angle}",
@@ -119,7 +164,7 @@ class Car:
     
     def move(self, app):
         # checks if the car has collided with another object
-        self.collision(app)
+        # ! self.collision(app)
         # only responds to player controls if not in collision
         if not self.inCollision:
             if self.accelerating:
@@ -137,7 +182,7 @@ class Car:
 
     # creates and rotates car rectangle based on center
     def updateCarRectangle(self):
-        l, w = 2, 4
+        l, w = 20, 40
         topLeft = (self.x-w, self.y-l)
         topRight = (self.x+w, self.y-l)
         bottomRight = (self.x+w, self.y+l)
@@ -147,8 +192,8 @@ class Car:
     
     # calculates new position of car
     def updateCarCenter(self, angle, x, y, vx, vy):
-        x += math.cos(math.radians(angle)) * vx * 0.3
-        y += math.sin(math.radians(angle)) * vy * 0.3
+        x += math.cos(math.radians(angle)) * vx 
+        y += math.sin(math.radians(angle)) * vy 
         return x, y
 
     def collision(self, app):
@@ -340,7 +385,13 @@ class Map:
         self.trackLine = [(283, 213), (390, 149), (467, 137), (526, 158), (641, 279), (675, 327), (749, 376), (803, 446), (857, 471), (907, 456), (918, 397), (952, 359), (1150, 391), (1152, 420), (1103, 480), (1105, 504), (1130, 509), (1179, 474), (1199, 476), (1219, 514), (1107, 575), (919, 591), (813, 529), (746, 478), (681, 404), (653, 402), (636, 386), (632, 361), (493, 192), (417, 202), (353, 241), (344, 278), (260, 354), (235, 341), (192, 400), (175, 451), (181, 484), (166, 504), (126, 470), (100, 416), (121, 403), (145, 353), (283, 213)]
         self.exteriorWall = [(272, 198), (383, 131), (469, 118), (538, 144), (657, 268), (689, 314), (761, 361), (815, 430), (859, 451), (890, 439), (901, 388), (944, 341), (953, 340), (1156, 373), (1167, 381), (1172, 425), (1124, 487), (1127, 488), (1170, 458), (1177, 455), (1207, 458), (1216, 465), (1239, 511), (1237, 523), (1226, 533), (1115, 593), (916, 612), (796, 542), (732, 494), (672, 424), (645, 422), (618, 394), (613, 369), (487, 215), (424, 221), (370, 254), (364, 284), (268, 373), (251, 373), (240, 367), (210, 411), (196, 452), (201, 486), (179, 520), (164, 526), (155, 522), (110, 483), (81, 420), (83, 406), (106, 390), (129, 342), (272, 198)]
         self.interiorWall = [(294, 230), (398, 168), (466, 158), (516, 176), (626, 292), (659, 340), (734, 391), (789, 462), (850, 491), (861, 491), (919, 473), (926, 461), (937, 407), (960, 381), (1131, 407), (1132, 413), (1085, 473), (1086, 508), (1093, 520), (1132, 529), (1146, 523), (1184, 495), (1187, 496), (1193, 506), (1103, 556), (924, 571), (822, 512), (759, 464), (695, 390), (683, 384), (661, 383), (654, 377), (651, 353), (644, 345), (507, 177), (495, 173), (411, 183), (340, 227), (333, 237), (326, 268), (258, 330), (236, 321), (220, 327), (174, 391), (155, 450), (159, 474), (142, 459), (126, 424), (137, 417), (161, 366), (294, 230)]
+        
+        self.seaLine = [(412, 716), (185, 493), (203, 467), (209, 411), (382, 258), (376, 239), (486, 213), (616, 381), (636, 412), (716, 475), (832, 597), (959, 619), (1086, 599), (1239, 534), (1240, 2), (40, 4), (41, 714), (410, 715)]
+        
         self.mapShapes.append(self.trackLine)
+        self.mapShapes.append(self.exteriorWall)
+        self.mapShapes.append(self.interiorWall)
+        self.mapShapes.append(self.seaLine)
         
     def input(self, inputType, action):
         if inputType == "keyPress":
@@ -348,6 +399,7 @@ class Map:
             elif action == "s": self.saveShape()
             elif action == "p": self.printShapes()
             elif action == "m": self.changeMode()
+            elif action == "x": self.shiftMap()
         elif inputType == "mousePress":
             if self.drawing: self.addPoint(action)
             else: self.movePoint(action)
@@ -396,6 +448,19 @@ class Map:
     
     def changeMode(self):
         self.drawing = not self.drawing
+    
+    def shiftMap(self):
+        newShape = []
+        result = []
+        for l in self.mapShapes:
+            new = []
+            for x, y in l:
+                x *= 5
+                y *= 5
+                new.append((x, y))
+            result.append(new)
+        self.mapShapes = result
+            
 
 ##################
 # HELPER FUNCTIONS
@@ -485,4 +550,5 @@ def intersectionPoint(L1, L2):
     else:
         return False
 
+# runApp(width=1280, height=720)
 runApp(width=1280, height=720)
