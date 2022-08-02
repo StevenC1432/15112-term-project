@@ -7,8 +7,8 @@ def appStarted(app):
     app.timerDelay = 1000//60
     app.map = Map()
     # TODO: create map
-    track = app.loadImage("images/monacoTrack.jpeg")
-    track = app.scaleImage(track, 1)
+    track = app.loadImage("images/albert_park.jpeg")
+    track = app.scaleImage(track, 0.6)
     app.track = ImageTk.PhotoImage(track)
     app.action = None
     app.gameStarted = False
@@ -17,14 +17,14 @@ def redrawAll(app, canvas):
     # TODO: make HUD relative to car to stay on screen
     canvas.configure(xscrollincrement=1)
     canvas.configure(yscrollincrement=1)
-    canvas.configure(scrollregion = (0, 0, 15000, 15000))
+    canvas.configure(scrollregion = (0, 0, 30000, 30000))
     if app.action == "Up": canvas.yview_scroll(-50, "units")
     if app.action == "Down": canvas.yview_scroll(50, "units")
     if app.action == "Left": canvas.xview_scroll(-50, "units")
     if app.action == "Right": canvas.xview_scroll(50, "units")
     # selection screen
     if app.screen == "selection":
-        canvas.create_image(app.width//2, app.height//2, image=app.track)
+        #canvas.create_image(app.width//2, app.height//2-50, image=app.track)
         app.map.draw(app, canvas)
     # game screen
     else:
@@ -40,6 +40,7 @@ def redrawAll(app, canvas):
                 car.draw(app, canvas)
             # app.enemy1.visualizeSelfDrive(app, canvas)
             # canvas.scale(ALL, app.player.x, app.player.y, 2, 2)
+            print((app.player.x, app.player.y))
     
 def startGame(app):
     # start positions
@@ -148,8 +149,8 @@ class Car:
         # scrolling
         if self.name == "Player":
             # * find distance from (0, 0) to car center
-            xDiff = int(self.x - self.xCamera)
-            yDiff = int(self.y - self.yCamera)
+            xDiff = int((self.x - self.xCamera)*1.05)
+            yDiff = int((self.y - self.yCamera)*1.05)
             canvas.xview_scroll(xDiff, "units")
             canvas.yview_scroll(yDiff, "units")
             self.xCamera = self.x
@@ -200,7 +201,7 @@ class Car:
         x += math.cos(math.radians(angle)) * vx 
         y += math.sin(math.radians(angle)) * vy 
         return x, y
-
+    
     def collision(self, app):
         if self.touchingObject(app):
             if self.collisionType == "Car": 
@@ -356,9 +357,9 @@ class Enemy(Car):
         for i in range(len(app.map.trackLine)):
             r = self.trackWidth
             # after car reaches checkpoint changes to next checkpoint
-            print(distance((self.x, self.y), app.map.trackLine[i]))
+            # print(distance((self.x, self.y), app.map.trackLine[i]))
             if distance((self.x, self.y), app.map.trackLine[i]) < r:
-                print('new checkpoint')
+                # print('new checkpoint')
                 self.checkpoint = app.map.trackLine[i+1]
                 break
     def visualizeSelfDrive(self, app, canvas):
@@ -382,25 +383,11 @@ class Enemy(Car):
 
 class Map:
     def __init__(self):
-        self.mapShapes = []
         self.currentShape = []
         self.drawing = True
         self.selectedIndex = None
-        self.mapShapes = [[(289, 221), (373, 166), (418, 147), (468, 144), (507, 154), (522, 166), (550, 200), (636, 284), (670, 331), (740, 380), (799, 451), (818, 467), (847, 475), (879, 476), (902, 466), (917, 445), (927, 392), (938, 378), (954, 370), (974, 370), (1153, 393), (1159, 404), (1153, 418), (1141, 426), (1128, 435), (1116, 454), (1107, 468), (1098, 486), (1096, 501), (1108, 515), (1120, 515), (1129, 507), (1148, 460), (1157, 455), (1169, 452), (1198, 477), (1210, 494), (1211, 508), (1103, 563), (1053, 574), (957, 584), (915, 581), (888, 567), (813, 519), (757, 479), (675, 392), (657, 397), (640, 381), (641, 366), (505, 192), (493, 186), (467, 184), (417, 196), (372, 216), (345, 241), (341, 274), (270, 338), (257, 342), (237, 333), (221, 341), (181, 396), (166, 439), (169, 483), (159, 496), (149, 494), (124, 467), (103, 431), (106, 425), (120, 416), (151, 357), (196, 305), (257, 246), (289, 221)], 
-                          [(294, 229), (379, 175), (421, 157), (468, 154), (504, 164), (516, 172), (542, 207), (628, 290), (663, 339), (734, 387), (791, 460), (814, 477), (846, 484), (884, 485), (910, 473), (925, 450), (937, 398), (943, 388), (956, 381), (974, 381), (1146, 403), (1147, 410), (1145, 414), (1133, 419), (1118, 430), (1096, 465), (1087, 485), (1086, 505), (1104, 525), (1123, 525), (1138, 512), (1153, 473), (1160, 465), (1171, 465), (1190, 482), (1200, 496), (1200, 504), (1101, 554), (1050, 564), (957, 574), (918, 570), (893, 559), (817, 512), (762, 472), (678, 382), (659, 386), (650, 377), (652, 363), (511, 185), (495, 178), (468, 174), (414, 186), (367, 208), (337, 234), (333, 267), (265, 329), (257, 332), (238, 322), (216, 333), (172, 391), (155, 437), (159, 481), (156, 484), (152, 485), (133, 464), (117, 437), (117, 431), (128, 421), (160, 363), (205, 312), (263, 254), (294, 229)], 
-                          [(281, 214), (368, 158), (415, 138), (470, 133), (512, 145), (530, 160), (559, 195), (644, 278), (676, 324), (745, 373), (805, 444), (820, 457), (848, 465), (875, 466), (895, 455), (908, 439), (917, 387), (931, 371), (953, 360), (976, 360), (1157, 383), (1168, 397), (1170, 407), (1162, 423), (1148, 433), (1137, 441), (1116, 475), (1109, 489), (1108, 500), (1115, 505), (1120, 498), (1124, 487), (1141, 448), (1156, 442), (1170, 443), (1206, 471), (1220, 491), (1220, 516), (1108, 573), (1055, 584), (957, 595), (913, 592), (885, 577), (809, 529), (752, 489), (673, 404), (653, 406), (630, 384), (629, 368), (500, 201), (492, 197), (467, 195), (419, 206), (378, 225), (355, 245), (350, 278), (275, 347), (259, 354), (238, 346), (227, 352), (191, 400), (176, 441), (179, 485), (162, 507), (145, 503), (117, 477), (94, 433), (99, 419), (113, 410), (143, 352), (188, 299), (250, 239), (281, 214)]]
-        gameMap = self.scaleMap(self.mapShapes, 10)
-        self.trackLine = gameMap[0]
-        self.interiorWall = gameMap[1]
-        self.exteriorWall = gameMap[2]
-    
-        # enlarged map
-        # self.mapShapes = [[(1445, 1105), (1865, 830), (2090, 735), (2340, 720), (2535, 770), (2610, 830), (2750, 1000), (3180, 1420), (3350, 1655), (3700, 1900), (3995, 2255), (4090, 2335), (4235, 2375), (4395, 2380), (4510, 2330), (4585, 2225), (4635, 1960), (4690, 1890), (4770, 1850), (4870, 1850), (5765, 1965), (5805, 2035), (5785, 2125), (5720, 2175), (5645, 2225), (5605, 2330), (5565, 2405), (5530, 2455), (5520, 2495), (5545, 2525), (5615, 2520), (5635, 2450), (5715, 2255), (5770, 2230), (5830, 2245), (5990, 2385), (6050, 2470), (6055, 2540), (5515, 2815), (5265, 2870), (4785, 2920), (4575, 2905), (4440, 2835), (4065, 2595), (3785, 2395), (3375, 1960), (3285, 1985), (3200, 1905), (3205, 1830), (2525, 960), (2465, 930), (2335, 920), (2085, 980), (1860, 1080), (1725, 1205), (1705, 1370), (1350, 1690), (1285, 1710), (1185, 1665), (1105, 1705), (905, 1980), (830, 2195), (845, 2415), (795, 2480), (745, 2470), 
-        #                    (620, 2335), (515, 2155), (530, 2125), (600, 2080), (755, 1785), (980, 1525), (1285, 1230), (1445, 1100)], [(1460, 1125), (1880, 850), (2100, 750), (2345, 740), (2525, 790), (2600, 850), (2725, 1000), (3175, 1450), (3335, 1675), (3690, 1915), (3970, 2265), (4090, 2360), (4230, 2400), (4410, 2405), (4525, 2345), (4605, 2240), (4655, 1970), (4705, 1910), (4775, 1875), (4870, 1870), (5765, 1990), (5785, 2040), (5770, 2120), (5640, 2220), (5565, 2380), (5525, 2445), (5505, 2500), (5530, 2535), (5570, 2540), (5630, 2535), (5730, 2275), (5775, 2255), (5820, 2265), (5980, 2400), (6030, 2475), (6045, 2530), (5525, 2800), (5270, 2855), (4795, 2905), (4585, 2890), (4055, 2570), (3785, 2375), (3395, 1955), (3370, 1950), (3290, 1960), (3225, 1900), (3230, 1840), (3220, 1810), (2540, 955), (2465, 920), (2335, 905), (2075, 965), (1855, 1060), (1710, 1205), (1690, 1370), (1355, 1670), (1290, 1690), 
-        #                     (1190, 1655), (1090, 1690), (890, 1980), (810, 2210), (820, 2365), (830, 2415), (785, 2465), (750, 2460), (630, 2325), (535, 2170), (540, 2145), (620, 2095), (765, 1800), (970, 1555), (1275, 1270), (1460, 1125)], [(1445, 1090), (1890, 805), (2095, 720), (2350, 705), (2550, 755), (2620, 815), (2765, 995), (3195, 1415), (3355, 1640), (3720, 1900), (4000, 2240), (4095, 2320), (4235, 2365), (4390, 2360), (4500, 2320), (4575, 2220), (4620, 1960), (4680, 1885), (4770, 1835), (4885, 1830), (5780, 1960), (5825, 2035), (5805, 2145), (5660, 2245), (5610, 2365), (5545, 2465), (5540, 2495), (5550, 2510), (5605, 2500), (5695, 2250), (5780, 2220), (5850, 2240), (6005, 2375), (6070, 2470), (6075, 2550), (5530, 2835), (5280, 2890), (4805, 2940), (4565, 2930), (3935, 2535), (3780, 2420), (3370, 1985), (3285, 2010), (3175, 1905), (3190, 1830), (2510, 975), (2460, 955), (2330, 940), (2095, 1000), (1870, 1105), (1740, 1220), (1725, 1385), (1365, 1710), (1280, 1720), (1195, 1690), (1120, 1720), (925, 1990), (850, 2185), (860, 2430), (805, 2500), (745, 2495), (620, 2365), (500, 2170), (515, 2120), (590, 2075), (740, 1780), (915, 1575), (1250, 1245), (1445, 1090)]]
-        # self.trackLine = self.mapShapes[0]
-        # self.interiorWall = self.mapShapes[1]
-        # self.exteriorWall = self.mapShapes[2]
+        self.trackLine = [(689, 544), (547, 524), (532, 522), (525, 519), (520, 516), (515, 510), (511, 504), (507, 492), (503, 484), (498, 478), (490, 474), (480, 470), (470, 468), (457, 466), (368, 454), (355, 450), (312, 434), (302, 431), (241, 409), (234, 405), (229, 400), (227, 395), (228, 388), (230, 384), (234, 379), (255, 362), (260, 356), (262, 350), (261, 343), (259, 338), (256, 334), (223, 306), (215, 297), (210, 288), (207, 280), (205, 272), (205, 260), (206, 253), (208, 244), (210, 233), (213, 223), (218, 211), (246, 150), (261, 123), (263, 116), (267, 100), (269, 95), (273, 92), (279, 91), (305, 89), (311, 88), (316, 86), (337, 73), (347, 67), (356, 63), (367, 60), (380, 58), (394, 58), (406, 59), (421, 63), (432, 68), (443, 75), (528, 152), (531, 159), (531, 163), (529, 167), (518, 180), (516, 186), (515, 193), (516, 200), (519, 208), (546, 253), (552, 261), (568, 283), (575, 291), (588, 305), (611, 325), (622, 332), (634, 339), (650, 345), (670, 351), (681, 353), (727, 359), (750, 360), (763, 359), (769, 357), (773, 355), (778, 350), (804, 319), (807, 317), (812, 315), (820, 314), (891, 316), (912, 318), (937, 323), (951, 327), (963, 333), (1060, 399), (1067, 407), (1072, 414), (1075, 422), (1076, 432), (1076, 439), (1073, 447), (1029, 519), (1022, 524), (1014, 525), (1005, 525), (995, 521), (962, 501), (949, 496), (938, 495), (929, 495), (920, 499), (916, 504), (914, 513), (912, 547), (910, 553), (907, 558), (901, 563), (894, 565), (887, 566), (876, 566), (689, 544)]
+        self.editingShape = self.trackLine[:]
         
     def input(self, inputType, action):
         if inputType == "keyPress":
@@ -408,75 +395,89 @@ class Map:
             elif action == "s": self.saveShape()
             elif action == "p": self.printShapes()
             elif action == "m": self.changeMode()
-            elif action == "x": self.shiftMap()
+            elif action == "x": self.scaleMap(self.editingShape, 10)
+            elif action == "e": self.finishMap()
         elif inputType == "mousePress":
             if self.drawing: self.addPoint(action)
             else: self.movePoint(action)
 
     def draw(self, app, canvas):
         if app.screen == "selection":
-            canvas.create_line(self.trackLine, width=20, fill="grey")
-            #canvas.create_line(self.exteriorWall, width=2, fill="red")
-            #canvas.create_line(self.interiorWall, width=2, fill="red")
-            if len(self.currentShape) > 1:
-                canvas.create_line(self.currentShape, width=2, fill="orange")
-            if self.mapShapes:
-                for shapeIndex, shape in enumerate(self.mapShapes):
-                    canvas.create_line(shape, width=3, fill="red")
-                    for pointIndex, (x, y) in enumerate(shape):
-                        r = 3
-                        if (shapeIndex, pointIndex) == self.selectedIndex:
-                            canvas.create_oval(x-r, y-r, x+r, y+r, fill="white")
-                        else:
-                            canvas.create_oval(x-r, y-r, x+r, y+r, fill="black")
+            # display mode
+            if self.drawing: mode = "creating"
+            else: mode = "editing"
+            canvas.create_text(app.width//2, app.height-50, text=mode)
+            # normal track
+            canvas.create_line(self.trackLine, width=25, fill="grey")
+            
+            # draw editing shape
+            if len(self.editingShape) > 1:
+                # draw line
+                canvas.create_line(self.editingShape, width=1, fill="red")
+                # draw vertices
+                r = 2
+                for currentIndex, point in enumerate(self.editingShape):
+                    (x, y) = point
+                    if currentIndex == self.selectedIndex:
+                        canvas.create_oval(x-r, y-r, x+r, y+r, fill="white")
+                    else:
+                        canvas.create_oval(x-r, y-r, x+r, y+r, fill="black")
         else:
-            canvas.create_line(self.trackLine, fill="grey", width=200)
-            canvas.create_line(self.trackLine, fill="black", width=3)
-            canvas.create_line(self.interiorWall, fill="black", width=5)
-            canvas.create_line(self.exteriorWall, fill="black", width=5)
+            # canvas.create_line(self.trackLine, fill="grey", width=300, smooth=True)
+            # canvas.create_line(self.exteriorWall, fill="black", width=3)
+            # canvas.create_line(self.interiorWall, fill="black", dash=(30, 30), width=3)
+            pass
 
     def saveShape(self):
         if self.drawing:
             if self.currentShape:
-                self.mapShapes.append(self.currentShape)
+                self.editingShape.append(self.currentShape)
                 self.currentShape = []
     
     def addPoint(self, point):
         if self.drawing:
             self.currentShape.append(point)
+        elif self.selectedIndex:
+            point = self.editingShape[self.selectedIndex]
+            self.editingShape.insert(self.selectedIndex, point)
     
     def removePoint(self):
         if self.drawing:
             if self.currentShape:
                 self.currentShape.pop()
-    
+        elif self.selectedIndex:
+            point = self.editingShape[self.selectedIndex]
+            self.editingShape.remove(point)
+            self.selectedIndex = None
+
     def printShapes(self):
-        print(self.mapShapes)
+        print(self.editingShape)
     
     def movePoint(self, clickPoint):
         if not self.drawing:
+            # if point not selected select point at mouseclick
             if not self.selectedIndex:
-                for shapeIndex, shape in enumerate(self.mapShapes):
-                    for pointIndex, (x, y) in enumerate(shape):
-                        if distance((x, y), (clickPoint)) < 5:
-                            self.selectedIndex = (shapeIndex, pointIndex)
+                for currentIndex, (x, y) in enumerate(self.editingShape):
+                    if distance((x, y), (clickPoint)) < 5:
+                        self.selectedIndex = currentIndex
             else:
-                self.mapShapes[self.selectedIndex[0]][self.selectedIndex[1]] = clickPoint
+                # if point selected move to mouseclick and reset selected index
+                self.editingShape[self.selectedIndex] = clickPoint
                 self.selectedIndex = None
     
     def changeMode(self):
         self.drawing = not self.drawing
     
-    def scaleMap(self, point, scale):
-        result = []
-        for shape in self.mapShapes:
-            new = []
-            for x, y in shape:
-                x *= scale
-                y *= scale
-                new.append((x, y))
-            result.append(new)
-        return result
+    def scaleMap(self, points, scale):
+        new = []
+        for x, y in points:
+            x *= scale
+            y *= scale
+            new.append((x, y))
+        return new
+    
+    def finishMap(self):
+        self.currentShape.append(self.currentShape[0])
 
 ##################
 # HELPER FUNCTIONS
@@ -565,6 +566,5 @@ def intersectionPoint(L1, L2):
         return x,y
     else:
         return False
-
-# runApp(width=1280, height=720)
+    
 runApp(width=1280, height=720)

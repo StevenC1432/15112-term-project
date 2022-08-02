@@ -1,44 +1,28 @@
-from tkinter import *
-from tkinter import ttk
-root = Tk()
+from cmu_112_graphics import *
 
-h = ttk.Scrollbar(root, orient = HORIZONTAL)
-v = ttk.Scrollbar(root, orient = VERTICAL)
-canvas = Canvas(root, scrollregion = (0, 0, 2000, 2000), width = 600, height = 600, yscrollcommand = v.set, xscrollcommand = h.set)
-h['command'] = canvas.xview
-v['command'] = canvas.yview
-ttk.Sizegrip(root).grid(column=1, row=1, sticky=(S,E))
+def appStarted(app):
+    app.line = [(100, 400), (300, 300), (400, 500)]
+    pass
 
-canvas.grid(column = 0, row = 0, sticky = (N,W,E,S))
-h.grid(column = 0, row = 1, sticky = (W,E))
-v.grid(column = 1, row = 0, sticky = (N,S))
-root.grid_columnconfigure(0, weight = 1)
-root.grid_rowconfigure(0, weight = 1)
-
-canvas.create_rectangle((0, 0, 50, 50), fill = 'black')
-canvas.create_rectangle((500, 500, 550, 550), fill = 'black')
-canvas.create_rectangle((1500, 1500, 1550, 1550), fill = 'black')
-canvas.create_rectangle((1000, 1000, 1050, 1050), fill = 'black')
-
-def xy_motion(event):
-    x, y = event.x, event.y
-
-    if x < 30:        
-        delta = -1
-        canvas.xview('scroll', delta, 'units')
-
-    if x > (600 - 30):
-        delta = 1
-        canvas.xview('scroll', delta, 'units')
-
-    if y < 30:
-        delta = -1
-        canvas.yview('scroll', delta, 'units')
-
-    if y > (600 - 30):
-        delta = 1
-        canvas.yview('scroll', delta, 'units')
-
-canvas.bind('<Motion>', xy_motion)
-
-root.mainloop()
+def redrawAll(app, canvas):
+    canvas.create_line(app.line, fill="lightgrey", width=100)
+    canvas.create_line(app.line)
+    outsidePoints(app, canvas, app.line)
+    
+def outsidePoints(app, canvas, line):
+    x1, y1 = line[0][0], line[0][1]
+    x2, y2 = line[1][0], line[1][1]
+    x3, y3 = line[2][0], line[2][1]
+    
+    # account for division by 0
+    slope1 = (x1-x2) / (y1-y2)
+    slope2 = (x2-x3) / (y2-y3)
+    averageSlope = -(slope1 + slope2) / 2
+    
+    intercept = y2 - averageSlope * x2
+    
+    newX = x2 - 50
+    newY = averageSlope * newX + intercept
+    canvas.create_line(x2, y2, newX, newY)
+    
+runApp(width=500, height=500)
