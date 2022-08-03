@@ -38,7 +38,7 @@ def redrawAll(app, canvas):
             # canvas.create_line(app.map.interiorWall, fill="black", width=10)
             for car in app.cars:
                 car.draw(app, canvas)
-            # app.enemy1.visualizeSelfDrive(app, canvas)
+            app.enemy1.visualizeSelfDrive(app, canvas)
             # canvas.scale(ALL, app.player.x, app.player.y, 2, 2)
             # print((app.player.x, app.player.y))
     
@@ -46,18 +46,16 @@ def startGame(app):
     # start positions
     xStart, yStart = app.map.gameMap[0][0][0], app.map.gameMap[0][0][1]
     # print(xStart)
-    x1, y1 = xStart-100, yStart+3
-    x2, y2 = xStart, yStart+15
+    x1, y1 = xStart+500, yStart
+    x2, y2 = xStart+500, yStart+100
     x3, y3 = xStart-28, yStart+18
     x4, y4 = xStart-15, yStart+30
-    x5, y5 = xStart-40, yStart+30
+    x5, y5 = xStart, yStart
     # cars
-    app.enemy1 = Enemy(app, 'Enemy1', x1, y1, 0, 0)
-    app.enemy2 = Enemy(app, 'Enemy2', x2, y2, 0, 0)
-    app.enemy3 = Enemy(app, 'Enemy3', x3, y3, 0, 0)
-    app.enemy4 = Enemy(app, 'Enemy4', x4, y4, 0, 0)
-    app.player = Player(app, 'Player', xStart+2100, yStart+200, 0, 0)
-    app.cars = [app.player]
+    app.enemy1 = Enemy(app, 'Redbull', x1, y1, 'green')
+    app.enemy2 = Enemy(app, 'Ferrari', x2, y2, 'red')
+    app.player = Player(app, 'Player', x5, y5, 'blue')
+    app.cars = [app.player, app.enemy1, app.enemy2]
 
 def mousePressed(app, event):
     print(event.x, event.y)
@@ -119,15 +117,16 @@ def keyReleased(app, event):
 #####
 
 class Car:
-    def __init__(self, app, name, x, y, vx, vy):
+    def __init__(self, app, name, x, y, color):
         self.app = app
         self.name = name
+        self.color = color
         # position vars
         self.x = x
         self.y = y
-        self.vx = vx    # x velocity
-        self.vy = vy    # y velocity
-        self.angle = -45
+        self.vx = 0   # x velocity
+        self.vy = 0    # y velocity
+        self.angle = -180
         self.position = []
         self.updateCarRectangle()
         # movement vars
@@ -141,9 +140,14 @@ class Car:
         self.xWall, self.yWall = None, None
         self.collisionType = "None"
         self.collidedCar = None
+        # scoring
+        self.checkpoint = None
+        self.visitedCheckpoints = []
+        self.trackWidth = 150
+        self.score = 0
     
     def draw(self, app, canvas):
-        canvas.create_polygon(self.position, fill="blue")
+        canvas.create_polygon(self.position, fill=self.color)
         # collision impact
         if self.xWall and self.yWall:
             r = 3
@@ -299,9 +303,30 @@ class Car:
         if self.vy > 0: self.vy -= 0.1
         elif self.vy < 0: self.vy += 0.1
 
+    # creates checkpoints at track vertices to guide car
+    def checkpoints(self, app):
+        for i in range(len(app.map.trackLine)):
+            r = self.trackWidth
+            # after car reaches checkpoint changes to next checkpoint
+            # print(distance((self.x, self.y), app.map.trackLine[i]))
+            if (distance((self.x, self.y), app.map.trackLine[i]) < r):
+                # if finished lap
+                if len(self.visitedCheckpoints) == len(app.map.trackLine)-1:
+                    self.visitedCheckpoints = []
+                # checkpoint not already visited in lap    
+                if app.map.trackLine[i] not in self.visitedCheckpoints:
+                    self.visitedCheckpoints.append(app.map.trackLine[i])
+                    if i+1 > len(app.map.trackLine)-1:
+                        self.checkpoint = app.map.trackLine[0]
+                    else:
+                        self.checkpoint = app.map.trackLine[i+1]
+                    self.score += 1
+            # if self.score == len(app.map.trackLine)+2:
+            #     print('lap finished!')
+
 class Player(Car):
-    def __init__(self, app, name, x, y, vx, vy):
-        super().__init__(app, name, x, y, vx, vy)
+    def __init__(self, app, name, x, y, color):
+        super().__init__(app, name, x, y, color)
         # scrolling
         self.xOldPos = 640 # ? offset of camera to stay center
         self.yOldPos = 360
@@ -334,8 +359,9 @@ class Player(Car):
         self.updateCarRectangle()
         # adds friction to car movement
         self.friction()
+        self.checkpoints(app)
     
-    def draw(self, app, canvas): # TODO Later
+    def draw(self, app, canvas):
         # find difference between new and old car positions
         xDiff = int((self.x - self.xOldPos))
         yDiff = int((self.y - self.yOldPos))
@@ -370,17 +396,38 @@ class Player(Car):
                             Angle: {self.angle} \
                             Camera: ({self.xCamera},{self.yCamera})")
         self.drawMinimap(app, canvas)
+        self.drawLeaderboard(app, canvas)
     
     def drawMinimap(self, app, canvas):
         # track
         displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
         canvas.create_line(displayPoints, width=10, fill="black")
         # player dot icon 
-        mX, mY = self.x//33, self.y//33
-        x = self.xCamera + mX + 290
-        y = self.yCamera + mY - 340
-        r = 5
-        canvas.create_oval(x-r, y-r, x+r, y+r, fill="red")
+        for car in app.cars:
+            mX, mY = car.x//33, car.y//33
+            x = self.xCamera + mX + 290
+            y = self.yCamera + mY - 340
+            r = 5
+            canvas.create_oval(x-r, y-r, x+r, y+r, fill=car.color)
+    
+    def drawLeaderboard(self, app, canvas):
+        x, y = self.xCamera + 500, self.yCamera+20
+        w = 90
+        l = 165
+        # player positions
+        # [(player, score)]
+        rankings = []
+        for car in app.cars:
+            rankings.append((car.name, car.color, car.score))
+        rankings.sort(key = lambda x: x[2])
+        # assume leaderboard is already sorted
+        board = [(x-w, y-l), (x-w, y+l), (x+w, y+l), (x+w, y-l)]
+        for index, (name, color, score) in enumerate(rankings):
+            board[1] = (x-w, y+l - 30*index)
+            board[2] = (x+w, y+l - 30*index)
+            standing = board[:]
+            canvas.create_polygon(standing, fill=color, outline="black")
+            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=name, fill="white", anchor="nw")
     
     def centralizeMapDeconstructor(self, mapPoints):
         centralize = []
@@ -400,10 +447,8 @@ class Player(Car):
 
 class Enemy(Car):
     # initalize first checkpoint
-    def __init__(self, app, name, x, y, vx, vy):
-        super().__init__(app, name, x, y, vx, vy)
-        self.checkpoint = None
-        self.trackWidth = 20
+    def __init__(self, app, name, x, y, color):
+        super().__init__(app, name, x, y, color)
     # enemy driving
     def selfDrive(self, app):
         if self.checkpoint == None:
@@ -428,25 +473,18 @@ class Enemy(Car):
         left = self.updateCarCenter(self.angle-30, self.x, self.y, 50, 50)
         right = self.updateCarCenter(self.angle+30, self.x, self.y, 50, 50)
         return left, right
-    # creates checkpoints at track vertices to guide car
-    def checkpoints(self, app):
-        for i in range(len(app.map.trackLine)):
-            r = self.trackWidth
-            # after car reaches checkpoint changes to next checkpoint
-            # print(distance((self.x, self.y), app.map.trackLine[i]))
-            if distance((self.x, self.y), app.map.trackLine[i]) < r:
-                # print('new checkpoint')
-                self.checkpoint = app.map.trackLine[i+1]
-                break
+                
     def visualizeSelfDrive(self, app, canvas):
         # draw checkpoints
         for point in app.map.trackLine:
             x, y = point
             r = self.trackWidth
-            if point == self.checkpoint:
+            if point in self.visitedCheckpoints:
+                canvas.create_oval(x-r, y-r, x+r, y+r, outline="red", width=3)
+            elif point == self.checkpoint:
                 canvas.create_oval(x-r, y-r, x+r, y+r, outline="orange", width=3)
             else:
-                canvas.create_oval(x-r, y-r, x+r, y+r, outline="purple", width=3)
+                canvas.create_oval(x-r, y-r, x+r, y+r, outline="green", width=3)
         # draw sensors
         left = self.updateCarCenter(self.angle-30, self.x, self.y, 50, 50)
         right = self.updateCarCenter(self.angle+30, self.x, self.y, 50, 50)
@@ -470,6 +508,7 @@ class Map:
         self.selectionMap = [self.trackLine, self.interiorWall, self.exteriorWall]
         self.gameMap = self.scaleMap(self.selectionMap, 10)
         self.miniMap = self.scaleMap(self.selectionMap, 0.3)[0]
+        self.trackLine = self.gameMap[0]
         
     def input(self, inputType, action):
         if inputType == "keyPress":
