@@ -6,7 +6,6 @@ def appStarted(app):
     app.screen = "selection"
     app.timerDelay = 1000//60
     app.map = Map()
-    # TODO: create map
     #track = app.loadImage("images/albert_park.jpeg")
     #track = app.scaleImage(track, 0.6)
     #app.track = ImageTk.PhotoImage(track)
@@ -57,7 +56,7 @@ def startGame(app):
     app.enemy2 = Enemy(app, 'Enemy2', x2, y2, 0, 0)
     app.enemy3 = Enemy(app, 'Enemy3', x3, y3, 0, 0)
     app.enemy4 = Enemy(app, 'Enemy4', x4, y4, 0, 0)
-    app.player = Player(app, 'Player', x5, y5, 0, 0)
+    app.player = Player(app, 'Player', xStart+2100, yStart+200, 0, 0)
     app.cars = [app.player]
 
 def mousePressed(app, event):
@@ -375,11 +374,11 @@ class Player(Car):
     def drawMinimap(self, app, canvas):
         # track
         displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
-        canvas.create_line(displayPoints, width=5, fill="black")
+        canvas.create_line(displayPoints, width=10, fill="black")
         # player dot icon 
-        mX, mY = self.x//50, self.y//50
-        x = self.xCamera + mX + 370
-        y = self.yCamera + mY - 285
+        mX, mY = self.x//33, self.y//33
+        x = self.xCamera + mX + 290
+        y = self.yCamera + mY - 340
         r = 5
         canvas.create_oval(x-r, y-r, x+r, y+r, fill="red")
     
@@ -490,7 +489,7 @@ class Map:
             if self.drawing: mode = "creating"
             else: mode = "editing"
             # canvas.create_line(self.trackLine, width=5, fill="grey")
-            canvas.create_line(self.miniMap, width=1, fill="black")
+            # canvas.create_line(self.miniMap, width=1, fill="black")
             canvas.create_text(app.width//2, app.height-50, text=mode)
             
             # draw editing shape
