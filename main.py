@@ -304,7 +304,9 @@ class Player(Car):
     def __init__(self, app, name, x, y, vx, vy):
         super().__init__(app, name, x, y, vx, vy)
         # scrolling
-        self.xCamera = 640 # ? offset of camera to stay center
+        self.xOldPos = 640 # ? offset of camera to stay center
+        self.yOldPos = 360
+        self.xCamera = 640
         self.yCamera = 360
         self.centralizedPoints = self.centralizeMapDeconstructor(app.map.miniMap)
         
@@ -334,22 +336,35 @@ class Player(Car):
         # adds friction to car movement
         self.friction()
     
-    def draw(self, app, canvas):
-        # scrolling
-        # * find distance from (0, 0) to car center
-        xDiff = int((self.x - self.xCamera)*1) # ? rounding error accumulating?
-        yDiff = int((self.y - self.yCamera)*1)
-        print(canvas.xview)
-        canvas.xview_scroll(xDiff, "units")
-        canvas.yview_scroll(yDiff, "units")
-        self.xCamera = self.x
-        self.yCamera = self.y
-        # draw car
+    def draw(self, app, canvas): # TODO Later
+        # find difference between new and old car positions
+        xDiff = int((self.x - self.xOldPos))
+        yDiff = int((self.y - self.yOldPos))
+        # updates camera position by adding difference
+        self.xCamera += xDiff 
+        self.yCamera += yDiff 
+        canvas.xview_scroll(xDiff, "units") 
+        canvas.yview_scroll(yDiff, "units") 
+        # sets old position to current position
+        self.xOldPos = self.x 
+        self.yOldPos = self.y 
+        # finds int rounding difference between car position and camera position
+        xShift = int(self.x - self.xCamera)
+        yShift = int(self.y - self.yCamera)
+        # adds rounding difference to camera
+        self.xCamera += xShift
+        canvas.xview_scroll(xShift, "units") 
+        self.yCamera += yShift
+        canvas.yview_scroll(yShift, "units") 
+        
+        # draw player car
         canvas.create_polygon(self.position, fill="blue")
         # draw player info
         self.drawHUD(app, canvas)
     
     def drawHUD(self, app, canvas):
+        r = 5
+        canvas.create_oval(self.xCamera-5, self.yCamera-5, self.xCamera+5, self.yCamera+5)
         # relative to player, not canvas
         canvas.create_text(self.xCamera, self.yCamera+300, anchor="s",
                             text=f"Position: ({int(self.x)}, {int(self.y)}) \
@@ -361,10 +376,10 @@ class Player(Car):
         # track
         displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
         canvas.create_line(displayPoints, width=5, fill="black")
-        # player icon
+        # player dot icon 
         mX, mY = self.x//50, self.y//50
-        x = self.xCamera + mX + 410
-        y = self.yCamera + mY - 90
+        x = self.xCamera + mX + 370
+        y = self.yCamera + mY - 285
         r = 5
         canvas.create_oval(x-r, y-r, x+r, y+r, fill="red")
     
@@ -372,15 +387,15 @@ class Player(Car):
         centralize = []
         for (x, y) in mapPoints:
             dx = self.xCamera + x
-            dy = self.yCamera + y 
+            dy = self.yCamera + y
             centralize.append((dx, dy))
         return centralize
     
     def centralizeMapConstructor(self, centralizedPoints):
         displayPoints = []
         for (dx, dy) in centralizedPoints:
-            x = self.xCamera + dx - 300
-            y = self.yCamera + dy - 500
+            x = self.xOldPos + dx - 350
+            y = self.yOldPos + dy - 700
             displayPoints.append((x, y))
         return displayPoints
 
