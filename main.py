@@ -7,17 +7,18 @@ def appStarted(app):
     app.timerDelay = 1000//60
     app.map = Map()
     # TODO: create map
-    track = app.loadImage("images/albert_park.jpeg")
-    track = app.scaleImage(track, 0.6)
-    app.track = ImageTk.PhotoImage(track)
+    #track = app.loadImage("images/albert_park.jpeg")
+    #track = app.scaleImage(track, 0.6)
+    #app.track = ImageTk.PhotoImage(track)
     app.action = None
     app.gameStarted = False
+    app.canvasWidth, app.canvasHeight = 15000, 15000
 
 def redrawAll(app, canvas):
     # TODO: make HUD relative to car to stay on screen
     canvas.configure(xscrollincrement=1)
     canvas.configure(yscrollincrement=1)
-    canvas.configure(scrollregion = (0, 0, 30000, 30000))
+    canvas.configure(scrollregion = (0, 0, app.canvasWidth, app.canvasHeight))
     if app.action == "Up": canvas.yview_scroll(-50, "units")
     if app.action == "Down": canvas.yview_scroll(50, "units")
     if app.action == "Left": canvas.xview_scroll(-50, "units")
@@ -40,12 +41,13 @@ def redrawAll(app, canvas):
                 car.draw(app, canvas)
             # app.enemy1.visualizeSelfDrive(app, canvas)
             # canvas.scale(ALL, app.player.x, app.player.y, 2, 2)
-            print((app.player.x, app.player.y))
+            # print((app.player.x, app.player.y))
     
-def startGame(app):
+def startGame(app): 
     # start positions
-    xStart, yStart = app.map.trackLine[0][0], app.map.trackLine[0][1]
-    x1, y1 = xStart-13, yStart+3
+    xStart, yStart = app.map.gameMap[0][0][0], app.map.gameMap[0][0][1]
+    # print(xStart)
+    x1, y1 = xStart-100, yStart+3
     x2, y2 = xStart, yStart+15
     x3, y3 = xStart-28, yStart+18
     x4, y4 = xStart-15, yStart+30
@@ -55,8 +57,8 @@ def startGame(app):
     app.enemy2 = Enemy(app, 'Enemy2', x2, y2, 0, 0)
     app.enemy3 = Enemy(app, 'Enemy3', x3, y3, 0, 0)
     app.enemy4 = Enemy(app, 'Enemy4', x4, y4, 0, 0)
-    app.player = Player(app, 'Player', x5-100, y5, 0, 0)
-    app.cars = [app.player, app.enemy1]
+    app.player = Player(app, 'Player', x5, y5, 0, 0)
+    app.cars = [app.player]
 
 def mousePressed(app, event):
     print(event.x, event.y)
@@ -140,31 +142,15 @@ class Car:
         self.xWall, self.yWall = None, None
         self.collisionType = "None"
         self.collidedCar = None
-        
-        # scrolling
-        self.xCamera = 640
-        self.yCamera = 360
     
     def draw(self, app, canvas):
-        # scrolling
-        if self.name == "Player":
-            # * find distance from (0, 0) to car center
-            xDiff = int((self.x - self.xCamera)*1.05)
-            yDiff = int((self.y - self.yCamera)*1.05)
-            canvas.xview_scroll(xDiff, "units")
-            canvas.yview_scroll(yDiff, "units")
-            self.xCamera = self.x
-            self.yCamera = self.y
-        
         canvas.create_polygon(self.position, fill="blue")
-        if self.name == "Player":
-            canvas.create_text(app.width//2, app.height-50, text=f"{self.angle}",
-                            anchor="sw")
-            if self.xWall and self.yWall:
-                r = 3
-                canvas.create_oval(self.xWall-r, self.yWall-r, self.xWall+r, self.yWall+r,
-                                    fill="orange")
-        # car image
+        # collision impact
+        if self.xWall and self.yWall:
+            r = 3
+            canvas.create_oval(self.xWall-r, self.yWall-r, self.xWall+r, self.yWall+r,
+                                fill="orange")
+        # * car image
         # image = ImageTk.PhotoImage(app.image.rotate(-self.angle, expand=True)) 
         # canvas.create_image(self.x, self.y, image=image)
     
@@ -315,12 +301,88 @@ class Car:
         elif self.vy < 0: self.vy += 0.1
 
 class Player(Car):
+    def __init__(self, app, name, x, y, vx, vy):
+        super().__init__(app, name, x, y, vx, vy)
+        # scrolling
+        self.xCamera = 640 # ? offset of camera to stay center
+        self.yCamera = 360
+        self.centralizedPoints = self.centralizeMapDeconstructor(app.map.miniMap)
+        
+    # player controls
     def pressedW(self): self.accelerating = True
     def pressedA(self): self.rotating = True; self.rotation = -5
     def pressedD(self): self.rotating = True; self.rotation = 5
     def releasedW(self): self.accelerating = False
     def releasedA(self): self.rotating = False
     def releasedD(self): self.rotating = False
+
+    def move(self, app):
+        # checks if the car has collided with another object
+        self.collision(app)
+        # only responds to player controls if not in collision
+        if not self.inCollision:
+            if self.accelerating:
+                if self.vx < 10: self.vx += 1
+                if self.vy < 10: self.vy += 1
+            if self.rotating: 
+                if self.angle+self.rotation>180: self.angle = -178
+                elif self.angle+self.rotation<-178: self.angle = 180
+                else: self.angle += self.rotation
+        # updates car position
+        self.x, self.y = self.updateCarCenter(self.angle, self.x, self.y, self.vx, self.vy)
+        self.updateCarRectangle()
+        # adds friction to car movement
+        self.friction()
+    
+    def draw(self, app, canvas):
+        # scrolling
+        # * find distance from (0, 0) to car center
+        xDiff = int((self.x - self.xCamera)*1) # ? rounding error accumulating?
+        yDiff = int((self.y - self.yCamera)*1)
+        print(canvas.xview)
+        canvas.xview_scroll(xDiff, "units")
+        canvas.yview_scroll(yDiff, "units")
+        self.xCamera = self.x
+        self.yCamera = self.y
+        # draw car
+        canvas.create_polygon(self.position, fill="blue")
+        # draw player info
+        self.drawHUD(app, canvas)
+    
+    def drawHUD(self, app, canvas):
+        # relative to player, not canvas
+        canvas.create_text(self.xCamera, self.yCamera+300, anchor="s",
+                            text=f"Position: ({int(self.x)}, {int(self.y)}) \
+                            Angle: {self.angle} \
+                            Camera: ({self.xCamera},{self.yCamera})")
+        self.drawMinimap(app, canvas)
+    
+    def drawMinimap(self, app, canvas):
+        # track
+        displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
+        canvas.create_line(displayPoints, width=5, fill="black")
+        # player icon
+        mX, mY = self.x//50, self.y//50
+        x = self.xCamera + mX + 410
+        y = self.yCamera + mY - 90
+        r = 5
+        canvas.create_oval(x-r, y-r, x+r, y+r, fill="red")
+    
+    def centralizeMapDeconstructor(self, mapPoints):
+        centralize = []
+        for (x, y) in mapPoints:
+            dx = self.xCamera + x
+            dy = self.yCamera + y 
+            centralize.append((dx, dy))
+        return centralize
+    
+    def centralizeMapConstructor(self, centralizedPoints):
+        displayPoints = []
+        for (dx, dy) in centralizedPoints:
+            x = self.xCamera + dx - 300
+            y = self.yCamera + dy - 500
+            displayPoints.append((x, y))
+        return displayPoints
 
 class Enemy(Car):
     # initalize first checkpoint
@@ -387,7 +449,13 @@ class Map:
         self.drawing = True
         self.selectedIndex = None
         self.trackLine = [(689, 544), (547, 524), (532, 522), (525, 519), (520, 516), (515, 510), (511, 504), (507, 492), (503, 484), (498, 478), (490, 474), (480, 470), (470, 468), (457, 466), (368, 454), (355, 450), (312, 434), (302, 431), (241, 409), (234, 405), (229, 400), (227, 395), (228, 388), (230, 384), (234, 379), (255, 362), (260, 356), (262, 350), (261, 343), (259, 338), (256, 334), (223, 306), (215, 297), (210, 288), (207, 280), (205, 272), (205, 260), (206, 253), (208, 244), (210, 233), (213, 223), (218, 211), (246, 150), (261, 123), (263, 116), (267, 100), (269, 95), (273, 92), (279, 91), (305, 89), (311, 88), (316, 86), (337, 73), (347, 67), (356, 63), (367, 60), (380, 58), (394, 58), (406, 59), (421, 63), (432, 68), (443, 75), (528, 152), (531, 159), (531, 163), (529, 167), (518, 180), (516, 186), (515, 193), (516, 200), (519, 208), (546, 253), (552, 261), (568, 283), (575, 291), (588, 305), (611, 325), (622, 332), (634, 339), (650, 345), (670, 351), (681, 353), (727, 359), (750, 360), (763, 359), (769, 357), (773, 355), (778, 350), (804, 319), (807, 317), (812, 315), (820, 314), (891, 316), (912, 318), (937, 323), (951, 327), (963, 333), (1060, 399), (1067, 407), (1072, 414), (1075, 422), (1076, 432), (1076, 439), (1073, 447), (1029, 519), (1022, 524), (1014, 525), (1005, 525), (995, 521), (962, 501), (949, 496), (938, 495), (929, 495), (920, 499), (916, 504), (914, 513), (912, 547), (910, 553), (907, 558), (901, 563), (894, 565), (887, 566), (876, 566), (689, 544)]
+        self.interiorWall = [(0, 0)]
+        self.exteriorWall = [(0, 0)]
         self.editingShape = self.trackLine[:]
+        
+        self.selectionMap = [self.trackLine, self.interiorWall, self.exteriorWall]
+        self.gameMap = self.scaleMap(self.selectionMap, 10)
+        self.miniMap = self.scaleMap(self.selectionMap, 0.3)[0]
         
     def input(self, inputType, action):
         if inputType == "keyPress":
@@ -406,9 +474,9 @@ class Map:
             # display mode
             if self.drawing: mode = "creating"
             else: mode = "editing"
+            # canvas.create_line(self.trackLine, width=5, fill="grey")
+            canvas.create_line(self.miniMap, width=1, fill="black")
             canvas.create_text(app.width//2, app.height-50, text=mode)
-            # normal track
-            canvas.create_line(self.trackLine, width=25, fill="grey")
             
             # draw editing shape
             if len(self.editingShape) > 1:
@@ -423,17 +491,60 @@ class Map:
                     else:
                         canvas.create_oval(x-r, y-r, x+r, y+r, fill="black")
         else:
-            # canvas.create_line(self.trackLine, fill="grey", width=300, smooth=True)
-            # canvas.create_line(self.exteriorWall, fill="black", width=3)
-            # canvas.create_line(self.interiorWall, fill="black", dash=(30, 30), width=3)
-            pass
+            scaledTrack = self.gameMap[0]
+            # grass
+            canvas.create_rectangle(0, 0, app.canvasWidth, app.canvasHeight, 
+                                    fill="lightGreen")
+            # track edge lines
+            canvas.create_line(scaledTrack, fill="white", width=330)
+            for i in range(1, len(scaledTrack)):
+                p1 = scaledTrack[i-1]
+                p2 = scaledTrack[i]
+                canvas.create_line(p1, p2, fill="red", dash=(50, 50), width=330)
+            # trackbed
+            canvas.create_line(scaledTrack, fill="grey", width=300)
+            # track markings
+            for i in range(1, len(scaledTrack)):
+                p1 = scaledTrack[i-1]
+                p2 = scaledTrack[i]
+                # track center lines
+                canvas.create_line(p1, p2, fill="black", dash=(10, 10), width=5)
+            # raceline
+            self.drawStartLine(canvas, scaledTrack)
+
+    def drawStartLine(self, canvas, points):
+        l = 150
+        w = 10
+        # align line to slope of track
+        x, y = points[0][0], points[0][1]
+        x2, y2 = points[1][0], points[1][1]
+        slope = (x-x2) / (y-y2)
+        # first line
+        raceline = [(x-w, y-l), (x-w, y+l), (x+w, y+l), (x+w, y-l)]
+        for i in range(16):
+            raceline[1] = (x-w, y+l - 20*i)
+            raceline[2] = (x+w, y+l - 20*i)
+            block = raceline[:]
+            block = rotatePolygon(block, (x, y), slope)
+            if i%2 == 0: canvas.create_polygon(block, fill="black")
+            else: canvas.create_polygon(block, fill="white")
+        # second line
+        shift = 20
+        raceline = [(x-w-shift, y-l), (x-w-shift, y+l), (x+w-shift, y+l), (x+w-shift, y-l)]
+        for i in range(16):
+            raceline[1] = (x-w-shift, y+l - 20*i)
+            raceline[2] = (x+w-shift, y+l - 20*i)
+            block = raceline[:]
+            block = rotatePolygon(block, (x, y), slope)
+            if i%2 == 1: canvas.create_polygon(block, fill="black")
+            else: canvas.create_polygon(block, fill="white")
 
     def saveShape(self):
         if self.drawing:
             if self.currentShape:
                 self.editingShape.append(self.currentShape)
                 self.currentShape = []
-    
+
     def addPoint(self, point):
         if self.drawing:
             self.currentShape.append(point)
@@ -467,15 +578,18 @@ class Map:
     
     def changeMode(self):
         self.drawing = not self.drawing
-    
-    def scaleMap(self, points, scale):
-        new = []
-        for x, y in points:
-            x *= scale
-            y *= scale
-            new.append((x, y))
-        return new
-    
+
+    def scaleMap(self, shapes, scale):
+        result = []
+        for shape in shapes:
+            new = []
+            for x, y in shape:
+                x *= scale
+                y *= scale
+                new.append((x, y))
+            result.append(new)
+        return result
+
     def finishMap(self):
         self.currentShape.append(self.currentShape[0])
 
