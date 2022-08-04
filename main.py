@@ -18,10 +18,10 @@ def redrawAll(app, canvas):
     canvas.configure(xscrollincrement=1)
     canvas.configure(yscrollincrement=1)
     canvas.configure(scrollregion = (0, 0, app.canvasWidth, app.canvasHeight))
-    if app.action == "Up": canvas.yview_scroll(-50, "units")
-    if app.action == "Down": canvas.yview_scroll(50, "units")
-    if app.action == "Left": canvas.xview_scroll(-50, "units")
-    if app.action == "Right": canvas.xview_scroll(50, "units")
+    # if app.action == "Up": canvas.yview_scroll(-50, "units")
+    # if app.action == "Down": canvas.yview_scroll(50, "units")
+    # if app.action == "Left": canvas.xview_scroll(-50, "units")
+    # if app.action == "Right": canvas.xview_scroll(50, "units")
     # selection screen
     if app.screen == "selection":
         #canvas.create_image(app.width//2, app.height//2-50, image=app.track)
@@ -30,22 +30,13 @@ def redrawAll(app, canvas):
     else:
         if app.gameStarted:
             app.map.draw(app, canvas)
-            # canvas.create_rectangle(0, 0, 5000, 5000, fill="lightGreen")
-            # canvas.create_polygon(app.map.seaLine, fill="lightGrey")
-            # # * Dashed line is glitched 
-            # canvas.create_line(app.map.trackLine, fill="black", width=3)
-            # canvas.create_line(app.map.exteriorWall, fill="black", width=10)
-            # canvas.create_line(app.map.interiorWall, fill="black", width=10)
             for car in app.cars:
                 car.draw(app, canvas)
             app.enemy1.visualizeSelfDrive(app, canvas)
-            # canvas.scale(ALL, app.player.x, app.player.y, 2, 2)
-            # print((app.player.x, app.player.y))
     
 def startGame(app): 
     # start positions
-    xStart, yStart = app.map.gameMap[0][0][0], app.map.gameMap[0][0][1]
-    # print(xStart)
+    xStart, yStart = app.map.gameMap[0][0], app.map.gameMap[0][1]
     x1, y1 = xStart+500, yStart
     x2, y2 = xStart+500, yStart+100
     x3, y3 = xStart-28, yStart+18
@@ -56,11 +47,6 @@ def startGame(app):
     app.enemy2 = Enemy(app, 'Ferrari', x2, y2, 'red')
     app.player = Player(app, 'Player', x5, y5, 'blue')
     app.cars = [app.player, app.enemy1, app.enemy2]
-
-def mousePressed(app, event):
-    print(event.x, event.y)
-    if app.screen == "selection":
-        app.map.input("mousePress", (event.x, event.y))
 
 def timerFired(app):
     if app.screen == "selection":
@@ -75,42 +61,27 @@ def timerFired(app):
                 car.selfDrive(app)
             car.move(app)
 
+def mousePressed(app, event):
+    if app.screen == "selection":
+        app.map.userInput("mousePress", (event.x, event.y))
+
 def keyPressed(app, event):
     if app.screen == "selection":
-        if event.key == "Up": app.action = "Up"
-        elif event.key == "Down": app.action = "Down"
-        elif event.key == "Left": app.action = "Left"
-        elif event.key == "Right": app.action = "Right" 
+        # starts game
         if event.key == "Space":
             app.screen = "game"
         else:
-            app.map.input("keyPress", event.key)
-    else:
+            app.map.userInput("keyPress", event.key)
+    elif app.screen == "game":
         if event.key == "w": app.player.pressedW()
         if event.key == "a": app.player.pressedA()
         if event.key == "d": app.player.pressedD()
-        # scrolling
-        if event.key == "Left": app.direction = "left"
-        if event.key == "Right": app.direction = "right"
-        if event.key == "Up": app.direction = "up"
-        if event.key == "Down": app.direction = "down"
 
 def keyReleased(app, event):
-    if app.screen == "selection":
-        if event.key == "Up": app.action = None
-        elif event.key == "Down": app.action = None
-        elif event.key == "Left": app.action = None
-        elif event.key == "Right": app.action = None
-        pass
-    else:
+    if app.screen == "game":
         if event.key == "w": app.player.releasedW()
         if event.key == "a": app.player.releasedA()
         if event.key == "d": app.player.releasedD()
-        # scrolling
-        if event.key == "Left": app.direction = None
-        if event.key == "Right": app.direction = None
-        if event.key == "Up": app.direction = None
-        if event.key == "Down": app.direction = None
 
 #####
 # CAR
@@ -133,6 +104,7 @@ class Car:
         self.rotating = False
         self.rotation = 0
         self.accelerating = False
+        self.maxSpeed = 20
         # collision vars
         self.lineIntersected = None
         self.inCollision = False
@@ -140,11 +112,13 @@ class Car:
         self.xWall, self.yWall = None, None
         self.collisionType = "None"
         self.collidedCar = None
+        self.trackPoints = app.map.gameMap
         # scoring
         self.checkpoint = None
         self.visitedCheckpoints = []
         self.trackWidth = 150
         self.score = 0
+        self.laps = 0
     
     def draw(self, app, canvas):
         canvas.create_polygon(self.position, fill=self.color)
@@ -163,8 +137,8 @@ class Car:
         # only responds to player controls if not in collision
         if not self.inCollision:
             if self.accelerating:
-                if self.vx < 10: self.vx += 1
-                if self.vy < 10: self.vy += 1
+                if self.vx < self.maxSpeed: self.vx += 1
+                if self.vy < self.maxSpeed: self.vy += 1
             if self.rotating: 
                 if self.angle+self.rotation>180: self.angle = -178
                 elif self.angle+self.rotation<-178: self.angle = 180
@@ -174,7 +148,7 @@ class Car:
         self.updateCarRectangle()
         # adds friction to car movement
         self.friction()
-
+    
     # creates and rotates car rectangle based on center
     def updateCarRectangle(self):
         l, w = 12, 24
@@ -305,24 +279,30 @@ class Car:
 
     # creates checkpoints at track vertices to guide car
     def checkpoints(self, app):
-        for i in range(len(app.map.trackLine)):
+        for i in range(len(self.trackPoints)):
             r = self.trackWidth
             # after car reaches checkpoint changes to next checkpoint
-            # print(distance((self.x, self.y), app.map.trackLine[i]))
-            if (distance((self.x, self.y), app.map.trackLine[i]) < r):
+            firstPass = False
+            if (distance((self.x, self.y), self.trackPoints[i]) < r):
                 # if finished lap
-                if len(self.visitedCheckpoints) == len(app.map.trackLine)-1:
+                if len(self.visitedCheckpoints) == len(self.trackPoints)-1:
                     self.visitedCheckpoints = []
                 # checkpoint not already visited in lap    
-                if app.map.trackLine[i] not in self.visitedCheckpoints:
-                    self.visitedCheckpoints.append(app.map.trackLine[i])
-                    if i+1 > len(app.map.trackLine)-1:
-                        self.checkpoint = app.map.trackLine[0]
+                if self.trackPoints[i] not in self.visitedCheckpoints:
+                    firstPass = True
+                    self.visitedCheckpoints.append(self.trackPoints[i])
+                    if i+1 > len(self.trackPoints)-1:
+                        self.checkpoint = self.trackPoints[0]
                     else:
-                        self.checkpoint = app.map.trackLine[i+1]
+                        self.checkpoint = self.trackPoints[i+1]
                     self.score += 1
-            # if self.score == len(app.map.trackLine)+2:
-            #     print('lap finished!')
+                if (self.score >= len(self.trackPoints) and 
+                    self.trackPoints[i] == self.trackPoints[0] and firstPass):
+                    self.laps += 1
+                    if self.laps == 2:
+                        print(f"{self.name} wins!")
+                    # * laps only increase on first contact, not continously
+                    firstPass = False
 
 class Player(Car):
     def __init__(self, app, name, x, y, color):
@@ -333,7 +313,7 @@ class Player(Car):
         self.xCamera = 640
         self.yCamera = 360
         self.centralizedPoints = self.centralizeMapDeconstructor(app.map.miniMap)
-        
+    
     # player controls
     def pressedW(self): self.accelerating = True
     def pressedA(self): self.rotating = True; self.rotation = -5
@@ -348,8 +328,8 @@ class Player(Car):
         # only responds to player controls if not in collision
         if not self.inCollision:
             if self.accelerating:
-                if self.vx < 10: self.vx += 1
-                if self.vy < 10: self.vy += 1
+                if self.vx < self.maxSpeed: self.vx += 1
+                if self.vy < self.maxSpeed: self.vy += 1
             if self.rotating: 
                 if self.angle+self.rotation>180: self.angle = -178
                 elif self.angle+self.rotation<-178: self.angle = 180
@@ -427,7 +407,8 @@ class Player(Car):
             board[2] = (x+w, y+l - 30*index)
             standing = board[:]
             canvas.create_polygon(standing, fill=color, outline="black")
-            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=name, fill="white", anchor="nw")
+            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=f"{name}, {score}", 
+                               fill="white", anchor="nw")
     
     def centralizeMapDeconstructor(self, mapPoints):
         centralize = []
@@ -452,7 +433,7 @@ class Enemy(Car):
     # enemy driving
     def selfDrive(self, app):
         if self.checkpoint == None:
-            self.checkpoint = app.map.trackLine[0]
+            self.checkpoint = self.trackPoints[0]
         leftPos, rightPos = self.checkFuturePosition()
         # get future positions of car after left/right shift
         leftDist = distance(leftPos, self.checkpoint)
@@ -476,7 +457,7 @@ class Enemy(Car):
                 
     def visualizeSelfDrive(self, app, canvas):
         # draw checkpoints
-        for point in app.map.trackLine:
+        for point in self.trackPoints:
             x, y = point
             r = self.trackWidth
             if point in self.visitedCheckpoints:
@@ -497,154 +478,128 @@ class Enemy(Car):
 
 class Map:
     def __init__(self):
-        self.currentShape = []
-        self.drawing = True
-        self.selectedIndex = None
+        self.inDrawMode = True
+        self.selectedIndex = []
         self.trackLine = [(689, 544), (547, 524), (532, 522), (525, 519), (520, 516), (515, 510), (511, 504), (507, 492), (503, 484), (498, 478), (490, 474), (480, 470), (470, 468), (457, 466), (368, 454), (355, 450), (312, 434), (302, 431), (241, 409), (234, 405), (229, 400), (227, 395), (228, 388), (230, 384), (234, 379), (255, 362), (260, 356), (262, 350), (261, 343), (259, 338), (256, 334), (223, 306), (215, 297), (210, 288), (207, 280), (205, 272), (205, 260), (206, 253), (208, 244), (210, 233), (213, 223), (218, 211), (246, 150), (261, 123), (263, 116), (267, 100), (269, 95), (273, 92), (279, 91), (305, 89), (311, 88), (316, 86), (337, 73), (347, 67), (356, 63), (367, 60), (380, 58), (394, 58), (406, 59), (421, 63), (432, 68), (443, 75), (528, 152), (531, 159), (531, 163), (529, 167), (518, 180), (516, 186), (515, 193), (516, 200), (519, 208), (546, 253), (552, 261), (568, 283), (575, 291), (588, 305), (611, 325), (622, 332), (634, 339), (650, 345), (670, 351), (681, 353), (727, 359), (750, 360), (763, 359), (769, 357), (773, 355), (778, 350), (804, 319), (807, 317), (812, 315), (820, 314), (891, 316), (912, 318), (937, 323), (951, 327), (963, 333), (1060, 399), (1067, 407), (1072, 414), (1075, 422), (1076, 432), (1076, 439), (1073, 447), (1029, 519), (1022, 524), (1014, 525), (1005, 525), (995, 521), (962, 501), (949, 496), (938, 495), (929, 495), (920, 499), (916, 504), (914, 513), (912, 547), (910, 553), (907, 558), (901, 563), (894, 565), (887, 566), (876, 566), (689, 544)]
-        self.interiorWall = [(0, 0)]
+        self.interiorWall = [(689, 544), (547, 524), (551, 500), (544, 497), (539, 494), (534, 488), (530, 482), (526, 470), (522, 462), (517, 456), (490, 474), (480, 470), (470, 468), (457, 466), (368, 454), (355, 450), (312, 434), (302, 431), (241, 409), (234, 405), (229, 400), (227, 395), (228, 388), (230, 384), (234, 379), (255, 362), (260, 356), (262, 350), (261, 343), (259, 338), (256, 334), (223, 306), (215, 297), (210, 288), (207, 280), (205, 272), (205, 260), (206, 253), (208, 244), (210, 233), (213, 223), (218, 211), (246, 150), (261, 123), (263, 116), (267, 100), (269, 95), (273, 92), (279, 91), (305, 89), (311, 88), (316, 86), (337, 73), (347, 67), (356, 63), (367, 60), (380, 58), (394, 58), (406, 59), (421, 63), (432, 68), (443, 75), (528, 152), (531, 159), (531, 163), (529, 167), (518, 180), (516, 186), (515, 193), (516, 200), (519, 208), (546, 253), (552, 261), (568, 283), (575, 291), (588, 305), (611, 325), (622, 332), (634, 339), (650, 345), (670, 351), (681, 353), (727, 359), (750, 360), (763, 359), (769, 357), (773, 355), (778, 350), (804, 319), (807, 317), (812, 315), (820, 314), (891, 316), (912, 318), (937, 323), (951, 327), (963, 333), (1060, 399), (1067, 407), (1072, 414), (1075, 422), (1076, 432), (1076, 439), (1073, 447), (1029, 519), (1022, 524), (1014, 525), (1005, 525), (995, 521), (962, 501), (949, 496), (938, 495), (929, 495), (920, 499), (916, 504), (914, 513), (912, 547), (910, 553), (907, 558), (901, 563), (894, 565), (887, 566), (876, 566), (689, 544)]
         self.exteriorWall = [(0, 0)]
-        self.editingShape = self.trackLine[:]
+        self.editingShape = []
+        # self.selectionMap = [self.trackLine, self.interiorWall, self.exteriorWall]
+        self.gameMap = self.scalePolygon(self.trackLine, 10)
+        self.miniMap = self.scalePolygon(self.trackLine, 0.3)
         
-        self.selectionMap = [self.trackLine, self.interiorWall, self.exteriorWall]
-        self.gameMap = self.scaleMap(self.selectionMap, 10)
-        self.miniMap = self.scaleMap(self.selectionMap, 0.3)[0]
-        self.trackLine = self.gameMap[0]
-        
-    def input(self, inputType, action):
+    def userInput(self, inputType, action):
         if inputType == "keyPress":
-            if action == "r": self.removePoint()
-            elif action == "s": self.saveShape()
-            elif action == "p": self.printShapes()
-            elif action == "m": self.changeMode()
+            if action == "a": self.addPoint()
+            elif action == "r": self.removePoint()
+            elif action == "p": print(self.editingShape)
+            elif action == "m": self.inDrawMode = not self.inDrawMode
             elif action == "x": self.scaleMap(self.editingShape, 10)
-            elif action == "e": self.finishMap()
+            elif action == "d": self.selectedIndex = []
+            elif action == "Up": self.movePoints(0, -1)
+            elif action == "Down": self.movePoints(0, 1)
+            elif action == "Left": self.movePoints(-1, 0)
+            elif action == "Right": self.movePoints(1, 0)   
         elif inputType == "mousePress":
-            if self.drawing: self.addPoint(action)
-            else: self.movePoint(action)
+            # draws new point
+            if self.inDrawMode: self.addPoint(action)
+            # selects existing point
+            else: self.selectPoint(action)
 
     def draw(self, app, canvas):
         if app.screen == "selection":
-            # display mode
-            if self.drawing: mode = "creating"
-            else: mode = "editing"
-            # canvas.create_line(self.trackLine, width=5, fill="grey")
-            # canvas.create_line(self.miniMap, width=1, fill="black")
+            # display current mode
+            mode = "Drawing" if self.inDrawMode else "Editing"
             canvas.create_text(app.width//2, app.height-50, text=mode)
-            
-            # draw editing shape
-            if len(self.editingShape) > 1:
-                # draw line
-                canvas.create_line(self.editingShape, width=1, fill="red")
-                # draw vertices
-                r = 2
-                for currentIndex, point in enumerate(self.editingShape):
-                    (x, y) = point
-                    if currentIndex == self.selectedIndex:
-                        canvas.create_oval(x-r, y-r, x+r, y+r, fill="white")
-                    else:
-                        canvas.create_oval(x-r, y-r, x+r, y+r, fill="black")
-        else:
-            scaledTrack = self.gameMap[0]
+            # draw shape being edited
+            self.drawEditingShape(canvas, self.editingShape)
+        elif app.screen == "game":
             # grass
             canvas.create_rectangle(0, 0, app.canvasWidth, app.canvasHeight, 
                                     fill="lightGreen")
-            # track edge lines
-            canvas.create_line(scaledTrack, fill="white", width=330)
-            for i in range(1, len(scaledTrack)):
-                p1 = scaledTrack[i-1]
-                p2 = scaledTrack[i]
-                canvas.create_line(p1, p2, fill="red", dash=(50, 50), width=330)
-            # trackbed
-            canvas.create_line(scaledTrack, fill="grey", width=300)
-            # track markings
-            for i in range(1, len(scaledTrack)):
-                p1 = scaledTrack[i-1]
-                p2 = scaledTrack[i]
-                # track center lines
-                canvas.create_line(p1, p2, fill="black", dash=(10, 10), width=5)
-            # raceline
-            self.drawStartLine(canvas, scaledTrack)
+            self.drawRaceTrack(canvas)
+            self.drawRaceLine(canvas, self.gameMap)
+    
+    def drawRaceTrack(self, canvas):
+        # track red/white indicators
+        canvas.create_line(self.gameMap, fill="white", width=320)
+        for i in range(1, len(self.gameMap)):
+            p1, p2 = self.gameMap[i-1], self.gameMap[i]
+            canvas.create_line(p1, p2, fill="red", dash=(50, 50), width=320)
+        # trackbed
+        canvas.create_line(self.gameMap, fill="grey", width=300)
+        # track center line markings
+        for i in range(1, len(self.gameMap)):
+            p1, p2 = self.gameMap[i-1], self.gameMap[i]
+            canvas.create_line(p1, p2, fill="black", dash=(10, 10), width=5)
 
-    def drawStartLine(self, canvas, points):
-        l = 150
-        w = 10
-        # align line to slope of track
+    def drawRaceLine(self, canvas, points):
+        # align raceline to slope of track
         x, y = points[0][0], points[0][1]
         x2, y2 = points[1][0], points[1][1]
         slope = (x-x2) / (y-y2)
-        # first line
-        raceline = [(x-w, y-l), (x-w, y+l), (x+w, y+l), (x+w, y-l)]
-        for i in range(16):
-            raceline[1] = (x-w, y+l - 20*i)
-            raceline[2] = (x+w, y+l - 20*i)
-            block = raceline[:]
-            block = rotatePolygon(block, (x, y), slope)
-            if i%2 == 0: canvas.create_polygon(block, fill="black")
-            else: canvas.create_polygon(block, fill="white")
-        # second line
-        shift = 20
-        raceline = [(x-w-shift, y-l), (x-w-shift, y+l), (x+w-shift, y+l), (x+w-shift, y-l)]
+        # draw raceline
+        self.alternatingSquares(canvas, x, y, slope, 0, 0)
+        self.alternatingSquares(canvas, x, y, slope, 20, 1)
+        
+    def alternatingSquares(self, canvas, x, y, slope, shift, oddStart):
+        l, w = 150, 10
+        raceline = [(x-w-shift, y-l), (x-w-shift, y+l), 
+                    (x+w-shift, y+l), (x+w-shift, y-l)]
         for i in range(16):
             raceline[1] = (x-w-shift, y+l - 20*i)
             raceline[2] = (x+w-shift, y+l - 20*i)
             block = raceline[:]
             block = rotatePolygon(block, (x, y), slope)
-            if i%2 == 1: canvas.create_polygon(block, fill="black")
+            if i%2 == oddStart: canvas.create_polygon(block, fill="black")
             else: canvas.create_polygon(block, fill="white")
 
-    def saveShape(self):
-        if self.drawing:
-            if self.currentShape:
-                self.editingShape.append(self.currentShape)
-                self.currentShape = []
+    def drawEditingShape(self, canvas, shape, r=2):
+        if len(shape) > 1:
+            canvas.create_line(shape, width=1, fill="red")
+            for index, point in enumerate(shape):
+                (x, y) = point
+                color = "white" if index in self.selectedIndex else "black"
+                canvas.create_oval(x-r, y-r, x+r, y+r, fill=color)
 
-    def addPoint(self, point):
-        if self.drawing:
-            self.currentShape.append(point)
-        elif self.selectedIndex:
-            point = self.editingShape[self.selectedIndex]
-            self.editingShape.insert(self.selectedIndex, point)
+    def addPoint(self, clickedPoint=None):
+        # draw mode: creates new point at mouseclick
+        if self.inDrawMode: self.editingShape.append(clickedPoint)
+        # edit mode: creates new point near selected point
+        elif len(self.selectedIndex) == 1: 
+            (x, y)= self.editingShape[self.selectedIndex[0]]
+            self.editingShape.insert(self.selectedIndex[0], (x+10, y))
+            self.selectedIndex = []
     
     def removePoint(self):
-        if self.drawing:
-            if self.currentShape:
-                self.currentShape.pop()
-        elif self.selectedIndex:
-            point = self.editingShape[self.selectedIndex]
-            self.editingShape.remove(point)
-            self.selectedIndex = None
+        # draw mode: removes last drawn point
+        if self.inDrawMode and self.editingShape: self.editingShape.pop()
+        # edit mode: removes selected point
+        elif len(self.selectedIndex) == 1: 
+            self.editingShape.pop(self.selectedIndex[0])
+            self.selectedIndex = []
 
-    def printShapes(self):
-        print(self.editingShape)
-    
-    def movePoint(self, clickPoint):
-        if not self.drawing:
-            # if point not selected select point at mouseclick
-            if not self.selectedIndex:
-                for currentIndex, (x, y) in enumerate(self.editingShape):
-                    if distance((x, y), (clickPoint)) < 5:
-                        self.selectedIndex = currentIndex
-            else:
-                # if point selected move to mouseclick and reset selected index
-                self.editingShape[self.selectedIndex] = clickPoint
-                self.selectedIndex = None
-    
-    def changeMode(self):
-        self.drawing = not self.drawing
+    # edit mode: selects clicked point
+    def selectPoint(self, clickedPoint):
+        if not self.inDrawMode:
+            for currentIndex, (x, y) in enumerate(self.editingShape):
+                if distance((x, y), (clickedPoint)) < 5:
+                    self.selectedIndex.append(currentIndex)
 
-    def scaleMap(self, shapes, scale):
-        result = []
-        for shape in shapes:
-            new = []
-            for x, y in shape:
-                x *= scale
-                y *= scale
-                new.append((x, y))
-            result.append(new)
-        return result
-
-    def finishMap(self):
-        self.currentShape.append(self.currentShape[0])
+    # edit mode: shifts selected points
+    def movePoints(self, dx, dy):
+        for index, (x, y) in enumerate(self.editingShape):
+            if index in self.selectedIndex:
+                self.editingShape[index] = (x+dx, y+dy)
+                    
+    # scales polygon by given factor
+    def scalePolygon(self, polygon, scale):
+        scaled = polygon[:]
+        for index, (x, y) in enumerate(polygon):
+            x *= scale
+            y *= scale
+            scaled[index] = (x, y)
+        return scaled
 
 ##################
 # HELPER FUNCTIONS
