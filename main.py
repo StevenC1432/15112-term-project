@@ -18,10 +18,6 @@ def redrawAll(app, canvas):
     canvas.configure(xscrollincrement=1)
     canvas.configure(yscrollincrement=1)
     canvas.configure(scrollregion = (0, 0, app.canvasWidth, app.canvasHeight))
-    # if app.action == "Up": canvas.yview_scroll(-50, "units")
-    # if app.action == "Down": canvas.yview_scroll(50, "units")
-    # if app.action == "Left": canvas.xview_scroll(-50, "units")
-    # if app.action == "Right": canvas.xview_scroll(50, "units")
     # selection screen
     if app.screen == "selection":
         #canvas.create_image(app.width//2, app.height//2-50, image=app.track)
@@ -32,21 +28,35 @@ def redrawAll(app, canvas):
             app.map.draw(app, canvas)
             for car in app.cars:
                 car.draw(app, canvas)
-            # app.enemy1.visualizeSelfDrive(app, canvas)
-    
+            # app.redbull.visualizeSelfDrive(app, canvas)
+
 def startGame(app): 
     # start positions
     xStart, yStart = app.map.gameMap[0][0], app.map.gameMap[0][1]
-    x1, y1 = xStart+500, yStart
-    x2, y2 = xStart+500, yStart+100
-    x3, y3 = xStart+500, yStart
-    x4, y4 = xStart-15, yStart+30
-    x5, y5 = xStart, yStart
+    x1, y1 = xStart+100, yStart-50
+    x2, y2 = xStart+100, yStart+100
+    x3, y3 = xStart+200, yStart-50
+    x4, y4 = xStart+200, yStart+100
+    x5, y5 = xStart+300, yStart-50
+    x6, y6 = xStart+300, yStart+100
+    x7, y7 = xStart+400, yStart-50
+    x8, y8 = xStart+400, yStart+100
+    x9, y9 = xStart+500, yStart-50
+    x10, y10 = xStart+500, yStart+100
     # cars
-    app.enemy1 = Enemy(app, 'Redbull', x1, y1, 'green')
-    app.enemy2 = Enemy(app, 'Ferrari', x2, y2, 'red')
-    app.player = Player(app, 'Player', x5, y5, 'blue')
-    app.cars = [app.player, app.enemy1, app.enemy2]
+    app.redbull = Enemy(app, 'Redbull', x1, y1, 'green')
+    app.ferrari = Enemy(app, 'Ferrari', x2, y2, 'red')
+    app.mercedes = Enemy(app, 'Mercedes', x3, y3, 'black')
+    app.apline = Enemy(app, 'Alpine', x4, y4, 'darkBlue')
+    app.mclaren = Enemy(app, "McLaren", x5, y5, "orange")
+    app.alfaRomeo = Enemy(app, "AlfaRomeo", x6, y6, "darkGrey")
+    app.haas = Enemy(app, "Haas", x7, y7, "lightBlue")
+    app.alphaTauri = Enemy(app, "AlphaTauri", x8, y8, "darkRed")
+    app.astonMartin = Enemy(app, "AstonMartin", x9, y9, "turquoise")
+    app.player = Player(app, 'Williams', x10, y10, 'blue')
+    app.cars = [app.redbull, app.ferrari, app.mercedes, app.apline,
+                app.mclaren, app.alfaRomeo, app.haas, app.alphaTauri,
+                app.astonMartin, app.player]
 
 def timerFired(app):
     if app.screen == "selection":
@@ -104,7 +114,7 @@ class Car:
         self.rotating = False
         self.rotation = 0
         self.accelerating = False
-        self.maxSpeed = 20
+        self.maxSpeed = 30
         # collision vars
         self.lineIntersected = None
         self.inCollision = False
@@ -116,9 +126,9 @@ class Car:
         # scoring
         self.checkpoint = None
         self.visitedCheckpoints = []
-        self.trackWidth = 300
+        self.trackWidth = 400
         self.score = 0
-        self.laps = 0
+        self.laps = 1
     
     def draw(self, app, canvas):
         canvas.create_polygon(self.position, fill=self.color)
@@ -175,6 +185,7 @@ class Car:
                 dy = y1 - y2
                 tangent = math.atan2(dy, dx)
                 angle = 2 * tangent - self.angle
+                # * angle change on collision (broken)
                 # self.angle = angle
                 # self.collidedCar.angle = 2*tangent - self.collidedCar.angle
                 # # account for existing overlap when collision detected
@@ -210,25 +221,9 @@ class Car:
             self.y += self.vy
             # if contact with another car exchange velocity
             # checks position of car relative to point of contact 
-            
             if self.collisionType == "Car":
-                #(self.vx, self.vy, self.collidedCar.vx, self.collidedCar.vy) = \
-                #(self.collidedCar.vx, self.collidedCar.vy, self.vx, self.vy,)
-                """
-                if self.collidedCar.x < self.x: 
-                    self.x += self.vx
-                    self.collidedCar.x -= self.collidedCar.vx
-                else: 
-                    self.x -= self.vx
-                    self.collidedCar.x += self.collidedCar.vx
-            
-                if self.collidedCar.y < self.y: 
-                    self.y += self.vy
-                    self.collidedCar.y -= self.collidedCar.vy
-                else: 
-                    self.y -= self.vy
-                    self.collidedCar.y += self.collidedCar.vy
-            """
+                (self.vx, self.vy, self.collidedCar.vx, self.collidedCar.vy) = \
+                (self.collidedCar.vx, self.collidedCar.vy, self.vx, self.vy,)
 
     # finds which object the car is touching
     def touchingObject(self, app):
@@ -378,38 +373,54 @@ class Player(Car):
         self.drawMinimap(app, canvas)
         self.drawLeaderboard(app, canvas)
     
+    def drawLeaderboard(self, app, canvas):
+        x, y = self.xCamera + 535, self.yCamera+100
+        w = 90
+        l = 150
+        # player positions
+        rankings = []
+        for car in app.cars:
+            rankings.append((car.name, car.color, car.score, car.laps))
+        rankings.sort(key = lambda x: x[2])
+        # assume leaderboard is already sorted
+        for index, (name, color, score, laps) in enumerate(rankings):
+            standing = ((x-w, y-l), (x+w, y+l-30*index))
+            canvas.create_rectangle(standing, fill=color, outline="black")
+            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=f"{name}, {score}", 
+                               fill="white", anchor="nw")
+        # lap display
+        print(rankings)
+        leadingLap = rankings[len(rankings)-1][3]
+        canvas.create_rectangle(self.xCamera+445, self.yCamera-100,
+                                self.xCamera+625, self.yCamera-50, fill="black")
+        canvas.create_text(self.xCamera + 535, self.yCamera-85, text="Leaderboard", 
+                           fill="white", font="Arial 11")
+        canvas.create_text(self.xCamera + 535, self.yCamera-65, text=f"LAP {leadingLap}/2", 
+                           fill="white", font="Arial 14 bold")
+
     def drawMinimap(self, app, canvas):
+        canvas.create_rectangle(self.xCamera + 340, self.yCamera-340,
+                                self.xCamera + 625, self.yCamera-110,
+                                fill="white", outline="black")
+        canvas.create_rectangle(self.xCamera + 340, self.yCamera-340,
+                                self.xCamera + 625, self.yCamera-295,
+                                fill="black")
+        canvas.create_text(self.xCamera + 480, self.yCamera-325, text="Map", 
+                           fill="white", font="Arial 11")
+        canvas.create_text(self.xCamera + 480, self.yCamera-310, text="SILVERSTONE", 
+                           fill="white", font="Arial 14 bold")
         # track
         displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
-        canvas.create_line(displayPoints, width=10, fill="black")
+        canvas.create_line(displayPoints, width=12, fill="black")
+        canvas.create_line(displayPoints, width=10, fill="grey")
         # player dot icon 
         for car in app.cars:
             mX, mY = car.x//33, car.y//33
             x = self.xCamera + mX + 290
-            y = self.yCamera + mY - 340
+            y = self.yCamera + mY - 340 + 45
             r = 5
             canvas.create_oval(x-r, y-r, x+r, y+r, fill=car.color)
-    
-    def drawLeaderboard(self, app, canvas):
-        x, y = self.xCamera + 500, self.yCamera+20
-        w = 90
-        l = 165
-        # player positions
-        # [(player, score)]
-        rankings = []
-        for car in app.cars:
-            rankings.append((car.name, car.color, car.score))
-        rankings.sort(key = lambda x: x[2])
-        # assume leaderboard is already sorted
-        board = [(x-w, y-l), (x-w, y+l), (x+w, y+l), (x+w, y-l)]
-        for index, (name, color, score) in enumerate(rankings):
-            board[1] = (x-w, y+l - 30*index)
-            board[2] = (x+w, y+l - 30*index)
-            standing = board[:]
-            canvas.create_polygon(standing, fill=color, outline="black")
-            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=f"{name}, {score}", 
-                               fill="white", anchor="nw")
-    
+
     def centralizeMapDeconstructor(self, mapPoints):
         centralize = []
         for (x, y) in mapPoints:
@@ -422,7 +433,7 @@ class Player(Car):
         displayPoints = []
         for (dx, dy) in centralizedPoints:
             x = self.xOldPos + dx - 350
-            y = self.yOldPos + dy - 700
+            y = self.yOldPos + dy - 700 + 45
             displayPoints.append((x, y))
         return displayPoints
 
