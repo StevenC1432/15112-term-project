@@ -27,22 +27,23 @@ def redrawAll(app, canvas):
         if app.gameStarted:
             app.map.draw(app, canvas)
             for car in app.cars:
-                car.draw(app, canvas)
+                if car.racing:
+                    car.draw(app, canvas)
             # app.redbull.visualizeSelfDrive(app, canvas)
 
 def startGame(app): 
     # start positions
-    xStart, yStart = app.map.gameMap[0][0], app.map.gameMap[0][1]
+    xStart, yStart = app.map.gameMap[0][0]+400, app.map.gameMap[0][1]+47
     x1, y1 = xStart+100, yStart-50
-    x2, y2 = xStart+100, yStart+100
+    x2, y2 = xStart+120, yStart+100
     x3, y3 = xStart+200, yStart-50
-    x4, y4 = xStart+200, yStart+100
+    x4, y4 = xStart+220, yStart+100
     x5, y5 = xStart+300, yStart-50
-    x6, y6 = xStart+300, yStart+100
+    x6, y6 = xStart+320, yStart+100
     x7, y7 = xStart+400, yStart-50
-    x8, y8 = xStart+400, yStart+100
+    x8, y8 = xStart+420, yStart+100
     x9, y9 = xStart+500, yStart-50
-    x10, y10 = xStart+500, yStart+100
+    x10, y10 = xStart+520, yStart+100
     # cars
     app.redbull = Enemy(app, 'Redbull', x1, y1, 'green')
     app.ferrari = Enemy(app, 'Ferrari', x2, y2, 'red')
@@ -66,10 +67,11 @@ def timerFired(app):
             startGame(app)
             app.gameStarted = True
         for car in app.cars:
-            if isinstance(car, Enemy):
-                car.checkpoints(app)
-                car.selfDrive(app)
-            car.move(app)
+            if car.racing:
+                if isinstance(car, Enemy):
+                    car.checkpoints(app)
+                    car.selfDrive(app)
+                car.move(app)
 
 def mousePressed(app, event):
     if app.screen == "selection":
@@ -107,7 +109,7 @@ class Car:
         self.y = y
         self.vx = 0   # x velocity
         self.vy = 0    # y velocity
-        self.angle = -180
+        self.angle = -170
         self.position = []
         self.updateCarRectangle()
         # movement vars
@@ -129,6 +131,8 @@ class Car:
         self.trackWidth = 400
         self.score = 0
         self.laps = 1
+        self.checkpointRank = 0
+        self.racing = True
     
     def draw(self, app, canvas):
         canvas.create_polygon(self.position, fill=self.color)
@@ -186,14 +190,14 @@ class Car:
                 tangent = math.atan2(dy, dx)
                 angle = 2 * tangent - self.angle
                 # * angle change on collision (broken)
-                # self.angle = angle
-                # self.collidedCar.angle = 2*tangent - self.collidedCar.angle
-                # # account for existing overlap when collision detected
-                # a = 0.5 * math.pi + tangent
-                # self.x += math.sin(a)
-                # self.y -= math.cos(a)
-                # self.collidedCar.x -= math.sin(a)
-                # self.collidedCar.y += math.cos(a)
+                self.angle = angle
+                self.collidedCar.angle = 2*tangent - self.collidedCar.angle
+                # account for existing overlap when collision detected
+                a = 0.5 * math.pi + tangent
+                self.x += math.sin(a)
+                self.y -= math.cos(a)
+                self.collidedCar.x -= math.sin(a)
+                self.collidedCar.y += math.cos(a)
             else:
                 (x1, y1), (x2, y2) = self.lineIntersected[0], self.lineIntersected[1]
             
@@ -291,11 +295,18 @@ class Car:
                     else:
                         self.checkpoint = self.trackPoints[i+1]
                     self.score += 1
+                    # implement checkpoint ranking
+                    self.checkpointRank = 0
+                    for car in app.cars:
+                        if self.name != car.name and self.score == car.score:
+                            self.checkpointRank += 1
+
                 if (self.score >= len(self.trackPoints) and 
                     self.trackPoints[i] == self.trackPoints[0] and firstPass):
-                    self.laps += 1
-                    if self.laps == 2:
-                        print(f"{self.name} wins!")
+                    if self.laps+1 == 3:
+                        self.racing = False
+                    else:
+                        self.laps += 1
                     # * laps only increase on first contact, not continously
                     firstPass = False
 
@@ -380,16 +391,25 @@ class Player(Car):
         # player positions
         rankings = []
         for car in app.cars:
-            rankings.append((car.name, car.color, car.score, car.laps))
-        rankings.sort(key = lambda x: x[2])
+            rankings.append((car.name, car.color, car.racing, car.laps, 
+                             car.score, car.checkpointRank))
+        rankings.sort(key = lambda x: (x[2], -x[4], x[5]), reverse=True)
         # assume leaderboard is already sorted
-        for index, (name, color, score, laps) in enumerate(rankings):
+        for index, (name, color, racing, laps, score, checkpointRank) in enumerate(rankings):
             standing = ((x-w, y-l), (x+w, y+l-30*index))
+            if not racing:
+                color = "white"
+                fontColor = "black"
+            else:
+                fontColor = "white"
             canvas.create_rectangle(standing, fill=color, outline="black")
-            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=f"{name}, {score}", 
-                               fill="white", anchor="nw")
+            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=f"{name}", 
+                               fill=fontColor, anchor="nw")
+            if not racing:
+                canvas.create_text((x+40, y+l - 30*(index+1)+8), text=f"FINISH", 
+                               fill=fontColor, anchor="nw")
         # lap display
-        print(rankings)
+        # print(rankings)
         leadingLap = rankings[len(rankings)-1][3]
         canvas.create_rectangle(self.xCamera+445, self.yCamera-100,
                                 self.xCamera+625, self.yCamera-50, fill="black")
@@ -558,8 +578,8 @@ class Map:
 
     def drawRaceLine(self, canvas, points):
         # align raceline to slope of track
-        x, y = points[0][0], points[0][1]
-        x2, y2 = points[1][0], points[1][1]
+        x, y = points[0][0]+400, points[0][1]+47
+        x2, y2 = points[1][0]+400, points[1][1]+47
         slope = (x-x2) / (y-y2)
         # draw raceline
         self.alternatingSquares(canvas, x, y, slope, 0, 0)
