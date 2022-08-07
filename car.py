@@ -1,4 +1,7 @@
 from helper import *
+from button import *
+
+import random
 
 class Car:
     def __init__(self, app, name, x, y, color):
@@ -9,8 +12,8 @@ class Car:
         # position vars
         self.x = x
         self.y = y
-        self.vx = 0   # x velocity
-        self.vy = 0    # y velocity
+        self.vx = 0         # x velocity
+        self.vy = 0         # y velocity
         self.angle = -170
         self.position = []
         self.updateCarRectangle()
@@ -22,7 +25,6 @@ class Car:
         # collision vars
         self.lineIntersected = None
         self.inCollision = False
-        # contact wall
         self.xWall, self.yWall = None, None
         self.collisionType = "None"
         self.collidedCar = None
@@ -47,7 +49,7 @@ class Car:
     def move(self, app):
         # checks if the car has collided with another object
         self.collision(app)
-        # only responds to player controls if not in collision
+        # only responds to player input if not in collision
         if not self.inCollision:
             if self.accelerating:
                 if self.vx < self.maxSpeed: self.vx += 1
@@ -61,6 +63,9 @@ class Car:
         self.updateCarRectangle()
         # adds friction to car movement
         self.friction()
+    
+    # * ########################
+    # * CALCULATING CAR POSITION
     
     # creates and rotates car rectangle based on center
     def updateCarRectangle(self):
@@ -78,6 +83,7 @@ class Car:
         y += math.sin(math.radians(angle)) * vy 
         return x, y
     
+    # * #################
     # * COLLISION PHYSICS
 
     def collision(self, app):
@@ -94,6 +100,12 @@ class Car:
                 tangent = math.atan2(dy, dx)
                 self.angle = 2 * tangent - self.angle
                 self.collidedCar.angle = 2 * tangent - self.collidedCar.angle
+                # account for existing overlap when collision detected
+                a = 0.5 * math.pi + tangent
+                self.x += math.sin(a)
+                self.y -= math.cos(a)
+                self.collidedCar.x -= math.sin(a)
+                self.collidedCar.y += math.cos(a)
             
             # * REFLECTION OF VECTOR 
             # * Uses formula provided by the Phong Reflection Model
@@ -112,7 +124,7 @@ class Car:
             # add elasticity
             self.vx *= 0.5
             self.vy *= 0.5
-    
+
     # finds normal vector of line
     def lineNormal(self, angle):
         d = math.degrees(angle)
@@ -121,7 +133,8 @@ class Car:
         else: nx = -math.sin(angle)
         ny = math.cos(angle)
         return nx, ny
-                
+    
+    # * ######################      
     # * CHECKING FOR COLLISION
     
     # finds which object the car is touching
@@ -177,41 +190,48 @@ class Car:
         if self.vy > 0: self.vy -= 0.1
         elif self.vy < 0: self.vy += 0.1
 
-    # * CAR SCORING / PATHFINDING
+    # * ###############
+    # * CAR CHECKPOINTS
     
     # creates checkpoints at track vertices to guide car
     def checkpoints(self, app):
         for i in range(len(self.trackPoints)):
-            r = self.trackWidth
             # after car reaches checkpoint changes to next checkpoint
-            firstPass = False
-            if (distance((self.x, self.y), self.trackPoints[i]) < r):
+            atCheckpoint = False
+            if (distance((self.x, self.y), self.trackPoints[i]) < self.trackWidth):
                 # if finished lap
                 if len(self.visitedCheckpoints) == len(self.trackPoints)-1:
                     self.visitedCheckpoints = []
                 # checkpoint not already visited in lap    
                 if self.trackPoints[i] not in self.visitedCheckpoints:
-                    firstPass = True
-                    self.visitedCheckpoints.append(self.trackPoints[i])
-                    if i+1 > len(self.trackPoints)-1:
-                        self.checkpoint = self.trackPoints[0]
-                    else:
-                        self.checkpoint = self.trackPoints[i+1]
-                    self.score += 1
-                    # implement checkpoint ranking
-                    self.checkpointRank = 0
-                    for car in app.cars:
-                        if self.name != car.name and self.score == car.score:
-                            self.checkpointRank += 1
+                    atCheckpoint = True
+                    self.atNewCheckpoint(app, i)
 
                 if (self.score >= len(self.trackPoints) and 
-                    self.trackPoints[i] == self.trackPoints[0] and firstPass):
-                    if self.laps+1 == 3:
-                        self.racing = False
-                    else:
-                        self.laps += 1
-                    # * laps only increase on first contact, not continously
-                    firstPass = False
+                    self.trackPoints[i] == self.trackPoints[0] and atCheckpoint):
+                    self.finishedLap()
+                    # laps only increase on first contact, not continously
+                    atCheckpoint = False
+    
+    def atNewCheckpoint(self, app, trackPointIndex):
+        self.visitedCheckpoints.append(self.trackPoints[trackPointIndex])
+        if trackPointIndex+1 > len(self.trackPoints)-1:
+            self.checkpoint = self.trackPoints[0]
+        else:
+            self.checkpoint = self.trackPoints[trackPointIndex+1]
+        self.score += 1
+        # implement checkpoint ranking
+        self.checkpointRank = 0
+        for car in app.cars:
+            if self.name != car.name and self.score == car.score:
+                self.checkpointRank += 1
+    
+    def finishedLap(self):
+        if self.laps+1 == 3:
+            self.racing = False
+        else:
+            self.laps += 1
+        
 
 class Player(Car):
     def __init__(self, app, name, x, y, color):
@@ -222,6 +242,7 @@ class Player(Car):
         self.xCamera = 640
         self.yCamera = 360
         self.centralizedPoints = self.centralizeMapDeconstructor(app.map.miniMap)
+        self.rankings = []
     
     # player controls
     def pressedW(self): self.accelerating = True
@@ -230,27 +251,16 @@ class Player(Car):
     def releasedW(self): self.accelerating = False
     def releasedA(self): self.rotating = False
     def releasedD(self): self.rotating = False
-
-    def move(self, app):
-        # checks if the car has collided with another object
-        self.collision(app)
-        # only responds to player controls if not in collision
-        if not self.inCollision:
-            if self.accelerating:
-                if self.vx < self.maxSpeed: self.vx += 1
-                if self.vy < self.maxSpeed: self.vy += 1
-            if self.rotating: 
-                if self.angle+self.rotation>180: self.angle = -178
-                elif self.angle+self.rotation<-178: self.angle = 180
-                else: self.angle += self.rotation
-        # updates car position
-        self.x, self.y = self.updateCarCenter(self.angle, self.x, self.y, self.vx, self.vy)
-        self.updateCarRectangle()
-        # adds friction to car movement
-        self.friction()
-        self.checkpoints(app)
     
     def draw(self, app, canvas):
+        # update camera view
+        self.updateCamera(canvas)
+        # draw player car
+        canvas.create_polygon(self.position, fill=self.color)
+        # draw player info
+        self.drawHUD(app, canvas)
+    
+    def updateCamera(self, canvas):
         # find difference between new and old car positions
         xDiff = int((self.x - self.xOldPos))
         yDiff = int((self.y - self.yOldPos))
@@ -270,11 +280,6 @@ class Player(Car):
         canvas.xview_scroll(xShift, "units") 
         self.yCamera += yShift
         canvas.yview_scroll(yShift, "units") 
-        
-        # draw player car
-        canvas.create_polygon(self.position, fill=self.color)
-        # draw player info
-        self.drawHUD(app, canvas)
     
     def drawHUD(self, app, canvas):
         r = 5
@@ -292,13 +297,13 @@ class Player(Car):
         w = 90
         l = 150
         # player positions
-        rankings = []
+        self.rankings = []
         for car in app.cars:
-            rankings.append((car.name, car.color, car.racing, car.laps, 
+            self.rankings.append((car.name, car.color, car.racing, car.laps, 
                              car.score, car.checkpointRank))
-        rankings.sort(key = lambda x: (x[2], -x[4], x[5]), reverse=True)
+        self.rankings.sort(key = lambda x: (x[2], -x[4], x[5]), reverse=True)
         # assume leaderboard is already sorted
-        for index, (name, color, racing, laps, score, checkpointRank) in enumerate(rankings):
+        for index, (name, color, racing, laps, score, checkpointRank) in enumerate(self.rankings):
             standing = ((x-w, y-l), (x+w, y+l-30*index))
             if not racing:
                 color = "white"
@@ -313,7 +318,7 @@ class Player(Car):
                                fill=fontColor, anchor="nw")
         # lap display
         # print(rankings)
-        leadingLap = rankings[len(rankings)-1][3]
+        leadingLap = self.rankings[len(self.rankings)-1][3]
         canvas.create_rectangle(self.xCamera+445, self.yCamera-100,
                                 self.xCamera+625, self.yCamera-50, fill="black")
         canvas.create_text(self.xCamera + 535, self.yCamera-85, text="Leaderboard", 
@@ -330,7 +335,7 @@ class Player(Car):
                                 fill="black")
         canvas.create_text(self.xCamera + 480, self.yCamera-325, text="Map", 
                            fill="white", font="Arial 11")
-        canvas.create_text(self.xCamera + 480, self.yCamera-310, text="SILVERSTONE", 
+        canvas.create_text(self.xCamera + 480, self.yCamera-310, text="ALBERT PARK", 
                            fill="white", font="Arial 14 bold")
         # track
         displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
@@ -364,6 +369,7 @@ class Enemy(Car):
     # initalize first checkpoint
     def __init__(self, app, name, x, y, color):
         super().__init__(app, name, x, y, color)
+    
     # enemy driving
     def selfDrive(self, app):
         if self.checkpoint == None:
@@ -373,16 +379,17 @@ class Enemy(Car):
         leftDist = distance(leftPos, self.checkpoint)
         rightDist = distance(rightPos, self.checkpoint)
         # checks whether moving left or right places the car closer to the next checkpoint
-        # (distance must be signficant, >10, to reduce wiggling)
-        if leftDist - rightDist < -3:
+        # (distance must be signficant, to reduce wiggling)
+        if leftDist - rightDist < -10:
             self.rotating = True
-            self.rotation = -5
-        elif leftDist - rightDist > 3:
+            self.rotation = -random.randint(3, 7)
+        elif leftDist - rightDist > 10:
             self.rotating = True
-            self.rotation = 5
+            self.rotation = random.randint(3, 7)
         else:
             self.rotating = False
         self.accelerating = True
+    
     # creates sensors: possible future positions of car after left/right shift
     def checkFuturePosition(self):
         left = self.updateCarCenter(self.angle-30, self.x, self.y, 50, 50)

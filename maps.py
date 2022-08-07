@@ -38,16 +38,10 @@ class Map:
 
     def draw(self, app, canvas):
         if app.screen == "selection":
-            # TESTING
             canvas.create_line(self.trackLine, fill="grey", width=30)
             # display current mode
-            mode = "Drawing" if self.inDrawMode else "Editing"
-            canvas.create_text(app.width//2, app.height-50, text=mode)
-            # draw shape being edited
-            self.drawEditingShape(canvas, self.editingShape)
-            # barriers
-            canvas.create_line(self.interiorWall, fill="black", width=1)
-            canvas.create_line(self.exteriorWall, fill="black", width=1)
+            # mode = "Drawing" if self.inDrawMode else "Editing"
+            # canvas.create_text(app.width//2, app.height-50, text=mode)
         elif app.screen == "game":
             # grass
             canvas.create_rectangle(0, 0, app.canvasWidth, app.canvasHeight, 
