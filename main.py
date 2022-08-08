@@ -28,30 +28,31 @@ def redrawAll(app, canvas):
     # set canvas scroll
     canvas.configure(xscrollincrement=1)
     canvas.configure(yscrollincrement=1)
-    # menu screen
+    # draw menu screen
     if app.screen == "menu":
         drawMenu(app, canvas)
-    # selection screen
+    # draw selection screen
     elif app.screen == "selection":
         canvas.configure(scrollregion = (0, 0, 1280, 640))
         drawSelection(app, canvas)
-    # game screen
+    # draw game screen
     elif app.screen == "game":
         canvas.configure(scrollregion = (0, 0, app.canvasWidth, app.canvasHeight))
         app.map.draw(app, canvas)
         for car in app.cars:
             if car.racing:
                 car.draw(app, canvas)
-        # app.redbull.visualizeSelfDrive(app, canvas)
+        # draw game over screen
         if not app.player.racing:
             drawGameOver(app, canvas)
+        # draw pause screen
         elif app.paused:
             drawPausedMenu(app, canvas)
-            
-        # start light
+        # draw start light
         if app.startLights:
             drawStartLight(app, canvas)
 
+# draws animated start light at the beginning of the race
 def drawStartLight(app, canvas):
     cx, cy = app.player.xCamera, app.player.yCamera-200
     canvas.create_rectangle(cx-150, cy-20, cx+150, cy-10, fill="grey", outline="black")
@@ -246,19 +247,19 @@ def drawGameOver(app, canvas):
                             fill=fontColor, font="{Open Sans} 14", anchor="nw")
         canvas.create_text((x-280, y+l - 35*(index+1)+8), text=f"{name}", 
                             fill=fontColor, font="{Open Sans} 14", anchor="nw")
-        if not racing:
-            time = raceTime
-        else:
-            time = "DNF"
-        canvas.create_text((x+280, y+l - 35*(index+1)+8), text=f"{time}", 
-                            fill=fontColor, font="{Open Sans} 14", anchor="nw")
+        # if not racing:
+        #     time = raceTime
+        # else:
+        #     time = "DNF"
+        # canvas.create_text((x+280, y+l - 35*(index+1)+8), text=f"{time}", 
+        #                     fill=fontColor, font="{Open Sans} 14", anchor="nw")
     # title text
     canvas.create_text(cx+20, cy-260, text="FORMULA 1 AUSTRALIAN GRAND PRIX",
                        fill="white", font="{Open Sans} 20 bold italic")
     canvas.create_text(cx-20, cy-220, text="CLASSIFICATION",
                        fill="grey", font="{Open Sans} 36 bold")
-    canvas.create_text(cx+450, cy-190, text="TIME",
-                       fill="white", font="{Open Sans} 16 bold")
+    # canvas.create_text(cx+450, cy-190, text="TIME",
+    #                    fill="white", font="{Open Sans} 16 bold")
     # winner background
     canvas.create_rectangle(cx-350-150, cy-300, cx-350+150, cy+300, fill=leaderColor)
     canvas.create_text(cx-350, cy+100, text=leaderName, fill="white", font="{Open Sans} 30 bold")
