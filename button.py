@@ -16,8 +16,6 @@ class Button:
     
     def isClicked(self, cx, cy):
         self.updatePosition()
-        print('x bounds', self.x1, cx, self.x2)
-        print('y bounds', self.y1, cy, self.y2)
         return (self.x1 < cx and cx < self.x2 and self.y1 < cy and cy < self.y2)
     
     def draw(self, canvas):

@@ -39,6 +39,7 @@ class Map:
     def draw(self, app, canvas):
         if app.screen == "selection":
             canvas.create_line(self.trackLine, fill="grey", width=30)
+            canvas.create_line(self.trackLine, fill="black", width=2, dash=(3, 2))
             # display current mode
             # mode = "Drawing" if self.inDrawMode else "Editing"
             # canvas.create_text(app.width//2, app.height-50, text=mode)
