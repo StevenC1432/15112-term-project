@@ -5,7 +5,8 @@ from button import *
 import random, time
 
 class Car:
-    def __init__(self, app, name, x, y, color, image):
+    def __init__(self, app, name, x, y, color, image, logo, angle=-170,
+                 score=0, laps=1, checkpointRank=0, racing=True):
         self.app = app
         # car info
         self.name = name
@@ -15,7 +16,7 @@ class Car:
         self.y = y
         self.vx = 0         # x velocity
         self.vy = 0         # y velocity
-        self.angle = -170
+        self.angle = angle
         self.position = []
         self.updateCarRectangle()
         # movement vars
@@ -34,19 +35,21 @@ class Car:
         self.checkpoint = None
         self.visitedCheckpoints = []
         self.trackWidth = 400
-        self.score = 0
-        self.laps = 1
-        self.checkpointRank = 0
-        self.racing = True
+        self.score = score
+        self.laps = laps
+        self.checkpointRank = checkpointRank
+        self.racing = racing
         self.raceTime = time.time()
         self.image = image
+        self.logo = logo
 
+    # draws car on canvas
     def draw(self, app, canvas):
         # canvas.create_polygon(self.position, fill=self.color)
-        # TODO: make explosion object for collision
         carImage = ImageTk.PhotoImage(self.image.rotate(-self.angle, expand=True)) 
         canvas.create_image(self.x, self.y, image=carImage)
 
+    # updates car position
     def move(self, app):
         # checks if the car has collided with another object
         self.collision(app)
@@ -157,6 +160,7 @@ class Car:
             if not self.carIntersectLine(app, self.position, self.lineIntersected):
                 self.inCollision = False
     
+    # returns True is car is colliding with another car
     def inCarCollision(self, app):
         for car in app.cars:
             if car.name != self.name and self.carIntersectLine(app, self.position, car.position):
@@ -165,6 +169,7 @@ class Car:
                 return True
         return False
     
+    # returns True if car is colliding with a wall
     def inWallCollision(self, app):
         if (self.carIntersectLine(app, self.position, app.map.interiorWall) or
             self.carIntersectLine(app, self.position, app.map.exteriorWall)):
@@ -172,6 +177,8 @@ class Car:
             return True
         return False
 
+    # returns True if car bounding box (4 line segments) is intersecting with
+    # given line segments
     def carIntersectLine(self, app, carPoints, objectPoints):
         carLines = getPairs(carPoints)
         objectLines = getPairs(objectPoints)
@@ -185,6 +192,7 @@ class Car:
                     return True
         return False
 
+    # adds friction to car velocity
     def friction(self):
         if self.vx > 0: self.vx -= 0.1
         elif self.vx < 0: self.vx += 0.1
@@ -208,28 +216,32 @@ class Car:
                     atCheckpoint = True
                     self.atNewCheckpoint(app, i)
 
+                # if car finishes lap
                 if (self.score >= len(self.trackPoints) and 
                     self.trackPoints[i] == self.trackPoints[0] and atCheckpoint):
                     self.finishedLap(app)
                     # laps only increase on first contact, not continously
                     atCheckpoint = False
     
+    # if at new checkpoint change goal to next checkpoint
     def atNewCheckpoint(self, app, trackPointIndex):
         self.visitedCheckpoints.append(self.trackPoints[trackPointIndex])
         if trackPointIndex+1 > len(self.trackPoints)-1:
             self.checkpoint = self.trackPoints[0]
         else:
             self.checkpoint = self.trackPoints[trackPointIndex+1]
+        # increases car score for reaching checkpoint
         self.score += 1
-        # implement checkpoint ranking
+        # checkpoint ranking: if cars have same score ranks by order of arrival
         self.checkpointRank = 0
         for car in app.cars:
             if self.name != car.name and self.score == car.score:
                 self.checkpointRank += 1
     
+    # if car finishes lap
     def finishedLap(self, app):
+        # if car finishes race calculate car's time
         if self.laps+1 == 2:
-            # finished race
             self.raceTime = round(time.time() - self.raceTime, 2)
             self.racing = False
         else:
@@ -237,8 +249,10 @@ class Car:
         
 
 class Player(Car):
-    def __init__(self, app, name, x, y, color, image):
-        super().__init__(app, name, x, y, color, image)
+    def __init__(self, app, name, x, y, color, image, logo, angle=-170,
+                 score=0, laps=1, checkpointRank=0, racing=True):
+        super().__init__(app, name, x, y, color, image, logo, angle,
+                         score, laps, checkpointRank, racing)
         # scrolling
         self.xOldPos = 640 # ? offset of camera to stay center
         self.yOldPos = 360
@@ -246,6 +260,13 @@ class Player(Car):
         self.yCamera = 360
         self.centralizedPoints = self.centralizeMapDeconstructor(app.map.miniMap)
         self.rankings = []
+        self.totalXshift = 0
+        self.totalYshift = 0
+        
+        # loading shift
+        self.loadX = 0
+        self.loadY = 0
+        self.loading = False
     
     # player controls
     def pressedW(self): self.accelerating = True
@@ -255,13 +276,24 @@ class Player(Car):
     def releasedA(self): self.rotating = False
     def releasedD(self): self.rotating = False
     
+    def gameLoaded(self, x, y):
+        self.loadX = x
+        self.loadY = y
+        self.loading = True
+    
+    # draws player car
     def draw(self, app, canvas):
+        if self.loading:
+            canvas.xview_scroll(self.loadX, "units")
+            canvas.yview_scroll(self.loadY, "units")
+            self.loading = False
         # update camera view
         self.updateCamera(canvas)
-        # draw player car
+        # player bounding box
         # canvas.create_polygon(self.position, fill=self.color)
         # draw player info
         self.drawHUD(app, canvas)
+        # draw car image
         carImage = ImageTk.PhotoImage(self.image.rotate(-self.angle, expand=True)) 
         canvas.create_image(self.x, self.y, image=carImage)
     
@@ -285,11 +317,17 @@ class Player(Car):
         canvas.xview_scroll(xShift, "units") 
         self.yCamera += yShift
         canvas.yview_scroll(yShift, "units") 
+
+        # keep track of total difference
+        self.totalXshift += xDiff + xShift
+        self.totalYshift += yDiff + yShift
+        print(self.totalXshift, self.totalYshift)
     
+    # draws player HUD
     def drawHUD(self, app, canvas):
         r = 5
         canvas.create_oval(self.xCamera-5, self.yCamera-5, self.xCamera+5, self.yCamera+5)
-        # relative to player, not canvas
+        # DISPLAY CAR STATS (DEBUG)
         # canvas.create_text(self.xCamera, self.yCamera+300, anchor="s",
         #                     text=f"Position: ({int(self.x)}, {int(self.y)}) \
         #                     Angle: {self.angle} \
@@ -297,32 +335,39 @@ class Player(Car):
         self.drawMinimap(app, canvas)
         self.drawLeaderboard(app, canvas)
     
+    # draws leaderboard of car rankings
     def drawLeaderboard(self, app, canvas):
         x, y = self.xCamera + 535, self.yCamera+100
         w = 90
         l = 150
-        # player positions
+        # car positions
         self.rankings = []
         for car in app.cars:
             self.rankings.append((car.name, car.color, car.racing, car.laps, 
-                             car.score, car.checkpointRank, car.raceTime))
+                             car.score, car.checkpointRank, car.raceTime, car.logo))
+        # sorts cars by if they have finished race, then score, then checkpoint rank
         self.rankings.sort(key = lambda x: (x[2], -x[4], x[5]), reverse=True)
-        # assume leaderboard is already sorted
-        for index, (name, color, racing, laps, score, checkpointRank, raceTime) in enumerate(self.rankings):
+        for index, (name, color, racing, laps, score, checkpointRank, raceTime, logo) in enumerate(self.rankings):
             standing = ((x-w, y-l), (x+w, y+l-30*index))
+            # changes display for finished cars to white
             if not racing:
                 color = "white"
                 fontColor = "black"
             else:
                 fontColor = "white"
+            # displays car name and color
             canvas.create_rectangle(standing, fill=color, outline="black")
             canvas.create_text((x-80, y+l - 30*(index+1)+8), text=f"{name}", 
                                fill=fontColor, anchor="nw")
-            if not racing:
-                canvas.create_text((x+40, y+l - 30*(index+1)+8), text=f"FINISH", 
-                               fill=fontColor, anchor="nw")
+            
+            image = app.scaleImage(logo, 0.06)
+            image = ImageTk.PhotoImage(image)
+            canvas.create_image(x+70, y+l - 30*(index+1)+15, image=image)
+            # TODO: displays "FINISH" if car finished
+            # if not racing:
+            #     canvas.create_text((x+40, y+l - 30*(index+1)+8), text=f"FINISH", 
+            #                    fill=fontColor, anchor="nw")
         # lap display
-        # print(rankings)
         leadingLap = self.rankings[len(self.rankings)-1][3]
         canvas.create_rectangle(self.xCamera+445, self.yCamera-100,
                                 self.xCamera+625, self.yCamera-50, fill="black")
@@ -332,21 +377,23 @@ class Player(Car):
                            fill="white", font="Arial 14 bold")
 
     def drawMinimap(self, app, canvas):
+        # minimap background
         canvas.create_rectangle(self.xCamera + 340, self.yCamera-340,
                                 self.xCamera + 625, self.yCamera-110,
                                 fill="white", outline="black")
         canvas.create_rectangle(self.xCamera + 340, self.yCamera-340,
                                 self.xCamera + 625, self.yCamera-295,
                                 fill="black")
+        # minimap text
         canvas.create_text(self.xCamera + 480, self.yCamera-325, text="Map", 
                            fill="white", font="Arial 11")
         canvas.create_text(self.xCamera + 480, self.yCamera-310, text="ALBERT PARK", 
                            fill="white", font="Arial 14 bold")
-        # track
+        # minimap track
         displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
         canvas.create_line(displayPoints, width=12, fill="black")
         canvas.create_line(displayPoints, width=10, fill="grey")
-        # player dot icon 
+        # car icons on map
         for car in app.cars:
             mX, mY = car.x//33, car.y//33
             x = self.xCamera + mX + 290
@@ -354,14 +401,8 @@ class Player(Car):
             r = 5
             canvas.create_oval(x-r, y-r, x+r, y+r, fill=car.color)
 
-    def centralizeMapDeconstructor(self, mapPoints):
-        centralize = []
-        for (x, y) in mapPoints:
-            dx = self.xCamera + x
-            dy = self.yCamera + y
-            centralize.append((dx, dy))
-        return centralize
-    
+    # transforms map by converting all points (x, y) into (cx+a, cy+b) where
+    # cx and cy is a given point --> allows for map to be scaled and moved
     def centralizeMapConstructor(self, centralizedPoints):
         displayPoints = []
         for (dx, dy) in centralizedPoints:
@@ -369,11 +410,22 @@ class Player(Car):
             y = self.yOldPos + dy - 700 + 45
             displayPoints.append((x, y))
         return displayPoints
+    
+    # takes in transformed map and sets center to screen center, returns list of
+    # drawable points
+    def centralizeMapDeconstructor(self, mapPoints):
+        centralize = []
+        for (x, y) in mapPoints:
+            dx = self.xCamera + x
+            dy = self.yCamera + y
+            centralize.append((dx, dy))
+        return centralize
 
 class Enemy(Car):
     # initalize first checkpoint
-    def __init__(self, app, name, x, y, color, image):
-        super().__init__(app, name, x, y, color, image)
+    # TODO: not updated
+    # def __init__(self, app, name, x, y, color, image, logo, angle=-170):
+    #     super().__init__(app, name, x, y, color, image, logo, angle)
     
     # enemy driving
     def selfDrive(self, app):
@@ -400,7 +452,8 @@ class Enemy(Car):
         left = self.updateCarCenter(self.angle-30, self.x, self.y, 50, 50)
         right = self.updateCarCenter(self.angle+30, self.x, self.y, 50, 50)
         return left, right
-                
+    
+    # visualizes enemy self driving algorithm
     def visualizeSelfDrive(self, app, canvas):
         # draw checkpoints
         for point in self.trackPoints:

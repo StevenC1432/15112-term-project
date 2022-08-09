@@ -5,6 +5,7 @@ from button import *
 from helper import *
 
 import math
+import pickle
 
 def appStarted(app):
     # game settings
@@ -48,6 +49,7 @@ def redrawAll(app, canvas):
         # draw pause screen
         elif app.paused:
             drawPausedMenu(app, canvas)
+            # drawGameOver(app, canvas) DEBUGGING
         # draw start light
         if app.startLights:
             drawStartLight(app, canvas)
@@ -71,10 +73,13 @@ def drawStartLight(app, canvas):
         y += 50
         canvas.create_oval(x-r, y-r, x+r, y+r, fill=color)
 
+# initalizes game
 def startGame(app):
     app.screen = "game"
     app.paused = False
     setupCars(app)
+    app.startLights = True
+    app.time = 0
 
 def setupCars(app): 
     # start positions
@@ -86,16 +91,16 @@ def setupCars(app):
                       (x+700, y-10), (x+775, y+100)]
 
     # team information
-    teams = {"Redbull":     ["#0600EF", app.redbullCar], # TODO: add car images and logos
-             "Ferrari":     ["#DC0000", app.ferrariCar],
-             "Mercedes":    ["#00D2BE", app.mercedesCar],
-             "Alpine":      ["#0090FF", app.alpineCar],
-             "Mclaren":     ["#FF8700", app.mclarenCar],
-             "Alfaromeo":   ["#900000", app.alfaromeoCar],
-             "Haas":        ["#ED1A3B", app.haasCar],
-             "AlphaTauri":  ["#2B4562", app.alphatauriCar],
-             "AstonMartin": ["#006F62", app.astonmartinCar],
-             "Williams":    ["#005AFF", app.williamsCar]
+    teams = {"Redbull":     ["#0600EF", app.redbullCar,     app.redbullLogo], # TODO: add car images and logos
+             "Ferrari":     ["#DC0000", app.ferrariCar,     app.ferrariLogo],
+             "Mercedes":    ["#00D2BE", app.mercedesCar,    app.mercedesLogo],
+             "Alpine":      ["#0090FF", app.alpineCar,      app.alpineLogo],
+             "Mclaren":     ["#FF8700", app.mclarenCar,     app.mclarenLogo],
+             "Alfaromeo":   ["#900000", app.alfaromeoCar,   app.alfaromeoLogo],
+             "Haas":        ["#ED1A3B", app.haasCar,        app.haasLogo],
+             "AlphaTauri":  ["#2B4562", app.alphatauriCar,  app.alphatauriLogo],
+             "AstonMartin": ["#006F62", app.astonmartinCar, app.astonmartinLogo],
+             "Williams":    ["#005AFF", app.williamsCar,    app.williamsLogo]
              }
 
     # create car objects
@@ -104,12 +109,13 @@ def setupCars(app):
     for index, name in enumerate(teams):
         color = teams[name][0]
         image = teams[name][1]
+        logo  = teams[name][2]
         (x, y) = startPositions[index]
         if name == player:
-            app.player = Player(app, name, x, y, color, image)
+            app.player = Player(app, name, x, y, color, image, logo)
             app.cars.append(app.player)
         else:
-            app.cars.append(Enemy(app, name, x, y, color, image))
+            app.cars.append(Enemy(app, name, x, y, color, image, logo))
 
 def timerFired(app):
     if app.screen == "game" and not app.paused:
@@ -138,7 +144,7 @@ def mousePressed(app, event):
         for button in app.selectionButtons:
             if button.isClicked(event.x, event.y):
                 buttonPressed(app, button)
-        # map editing
+        # MAP EDITING
         # app.map.userInput("mousePress", (event.x, event.y))
     elif app.screen == "game":
         if app.paused:
@@ -155,13 +161,56 @@ def mousePressed(app, event):
 def keyPressed(app, event):
     if app.screen == "selection":
         pass
-        # map editing
+        # MAP EDITING
         # app.map.userInput("keyPress", event.key)
     elif app.screen == "game":
         if event.key == "w": app.player.pressedW()
         if event.key == "a": app.player.pressedA()
         if event.key == "d": app.player.pressedD()
         if event.key == "Escape": app.paused = not app.paused
+        if event.key == "l": saveGame(app)
+
+def saveGame(app):
+    app.oldx, app.oldy = app.player.xCamera, app.player.yCamera
+    app.xCanvas, app.yCanvas = app.player.totalXshift, app.player.totalYshift
+    
+    save = {}
+    for car in app.cars:
+        if isinstance(car, Player): carType = "player"
+        else: carType = f"enemy:{car.name}"
+        save[carType] = [car.name, car.x, car.y, car.color, car.image, car.logo,
+                         car.angle, car.score, car.laps, car.checkpointRank, 
+                         car.racing]
+        
+    with open('save.pkl', 'wb') as file:
+        pickle.dump(save, file)
+    
+def loadGame(app):
+    with open('save.pkl', 'rb') as file:
+        saved = pickle.load(file)
+        app.cars = []
+        for car, info in saved.items():
+            name  = info[0]
+            x     = info[1]
+            y     = info[2]
+            color = info[3]
+            image = info[4]
+            logo  = info[5]
+            angle = info[6]
+            score = info[7]
+            laps  = info[8]
+            cRank = info[9]
+            racing= info[10]
+            if car == "player":
+                app.player = Player(app, name, x, y, color, image, logo, angle,
+                                    score, laps, cRank, racing)
+                app.cars.append(app.player)
+            else:
+                app.cars.append(Enemy(app, name, x, y, color, image, logo, angle,
+                                      score, laps, cRank, racing))
+    app.player.xCamera = app.oldx
+    app.player.yCamera = app.oldy
+    app.player.gameLoaded(app.xCanvas, app.yCanvas)
 
 def keyReleased(app, event):
     if app.screen == "game":
@@ -169,6 +218,7 @@ def keyReleased(app, event):
         if event.key == "a": app.player.releasedA()
         if event.key == "d": app.player.releasedD()
 
+# creates game buttons
 def setUpButtons(app):
     # menu screen
     startButton = Button("Start", app.width//2, app.height//2, 50, 25)
@@ -177,30 +227,42 @@ def setUpButtons(app):
     # selection screen
     playButton = Button("Play", app.width//2-60, app.height//2+270, 50, 25)
     backButton = Button("Back", app.width//2+60, app.height//2+270, 50, 25)
-    app.selectionButtons = [playButton, backButton]
+    loadButton = Button("Load", app.width//2+180, app.height//2+270, 50, 25)
+    app.selectionButtons = [playButton, backButton, loadButton]
 
+# if button is pressed
 def buttonPressed(app, button):
+    # start menu
     if app.screen == "menu":
         if button.name == "Start": app.screen = "selection"
         elif button.name == "Quit": app.quit()
+    # map selection menu
     elif app.screen == "selection":
         if button.name == "Play": startGame(app)
+        if button.name == "Load":
+            startGame(app)
+            loadGame(app)
         elif button.name == "Back": app.screen = "menu"
+    # game menu
     elif app.screen == "game" and app.paused:
         # reseting game also needs to reset canvas
         if button.name == "Resume": app.paused = False
-        elif button.name == "Restart": 
-            startGame(app)
+        # elif button.name == "Restart": startGame(app)
+        elif button.name == "Save": 
+            saveGame(app)
+            app.screen = "selection"
         elif button.name == "Exit": app.screen = "selection"
     elif app.screen == "game" and not app.player.racing:
         if button.name == "Exit": app.screen = "selection"
 
+# draws starting menu
 def drawMenu(app, canvas):
     for button in app.menuButtons:
         button.draw(canvas)
     # title
     canvas.create_image(app.width//2, app.height//2-100, image=app.logo)
 
+# draws map screen
 def drawSelection(app, canvas):
     for button in app.selectionButtons:
         button.draw(canvas)
@@ -208,21 +270,26 @@ def drawSelection(app, canvas):
     # map text
     canvas.create_text(900, 70, text="AUSTRALIAN GRAND PRIX", font="{Open Sans} 30 bold")
     canvas.create_text(970, 110, text="ALBERT PARK, MELBOURNE", font="{Open Sans} 18 italic")
-    
+
+# updates positions of game buttons while screen moves so they are displayed correctly
 def updateGameMenus(app):
     # game paused screen
     resumeButton = Button("Resume", app.player.xCamera, app.player.yCamera-70, 50, 25)
-    restartButton = Button("Restart", app.player.xCamera, app.player.yCamera, 50, 25)
+    # TODO: restart button not working
+    # restartButton = Button("Restart", app.player.xCamera, app.player.yCamera, 50, 25)
+    saveButton = Button("Save", app.player.xCamera, app.player.yCamera, 50, 25)
     exitButton = Button("Exit", app.player.xCamera, app.player.yCamera+70, 50, 25)
-    app.pausedButtons = [resumeButton, restartButton, exitButton]
+    app.pausedButtons = [resumeButton, saveButton, exitButton]
     # game over screen
     gameOverExitButton = Button("Exit", app.player.xCamera+420, app.player.yCamera+250, 50, 25, "white")
     app.gameOverButtons = [gameOverExitButton]
 
+# draws paused menu
 def drawPausedMenu(app, canvas):
     for button in app.pausedButtons:
         button.draw(canvas)
 
+# draws game over screen after player finishes
 def drawGameOver(app, canvas):
     cx, cy = app.player.xCamera, app.player.yCamera
     x, y = app.player.xCamera+150, app.player.yCamera
@@ -234,7 +301,8 @@ def drawGameOver(app, canvas):
     # leaderboard
     leaderName = app.player.rankings[len(app.player.rankings)-1][0]
     leaderColor = app.player.rankings[len(app.player.rankings)-1][1]
-    for index, (name, color, racing, laps, score, checkpointRank, raceTime) in enumerate(app.player.rankings):
+    leaderLogo = app.player.rankings[len(app.player.rankings)-1][7]
+    for index, (name, color, racing, laps, score, checkpointRank, raceTime, logo) in enumerate(app.player.rankings):
         standing = ((x-w, y-l), (x+w, y+l-35*index))
         if name == leaderName:
             fontColor = "black"
@@ -247,6 +315,7 @@ def drawGameOver(app, canvas):
                             fill=fontColor, font="{Open Sans} 14", anchor="nw")
         canvas.create_text((x-280, y+l - 35*(index+1)+8), text=f"{name}", 
                             fill=fontColor, font="{Open Sans} 14", anchor="nw")
+        # TODO: car finish times not displaying correctly
         # if not racing:
         #     time = raceTime
         # else:
@@ -265,12 +334,16 @@ def drawGameOver(app, canvas):
     canvas.create_text(cx-350, cy+100, text=leaderName, fill="white", font="{Open Sans} 30 bold")
     canvas.create_text(cx-358, cy+150, text="1", fill="white", font="{Open Sans} 48 bold")
     canvas.create_text(cx-333, cy+140, text="ST", fill="white", font="{Open Sans} 20 bold")
+    image = app.scaleImage(leaderLogo, 0.6)
+    image = ImageTk.PhotoImage(image)
+    canvas.create_image(x-500, y-50, image=image)
     
     for button in app.gameOverButtons:
         button.draw(canvas)
 
+# loads game images
 def loadImages(app):
-    logo = app.scaleImage(app.loadImage("images/f1logo.png"), 1)
+    logo = app.loadImage("images/f1logo.png")
     app.logo = ImageTk.PhotoImage(logo)
     
     app.redbullCar = app.scaleImage(app.loadImage("images/cars/redbullCar.png"), 0.06)
@@ -283,5 +356,23 @@ def loadImages(app):
     app.alphatauriCar = app.scaleImage(app.loadImage("images/cars/alphatauriCar.png"), 0.06)
     app.astonmartinCar = app.scaleImage(app.loadImage("images/cars/astonmartinCar.png"), 0.06)
     app.williamsCar = app.scaleImage(app.loadImage("images/cars/williamsCar.png"), 0.06)
+    
+    app.redbullLogo     = app.loadImage("images/logos/redbullLogo.png")
+    app.ferrariLogo     = app.loadImage("images/logos/ferrariLogo.png")
+    app.mercedesLogo    = app.loadImage("images/logos/mercedesLogo.png")
+    app.alpineLogo      = app.loadImage("images/logos/alpineLogo.png")
+    app.mclarenLogo     = app.loadImage("images/logos/mclarenLogo.png")
+    app.alfaromeoLogo   = app.loadImage("images/logos/alfaromeoLogo.png")
+    app.haasLogo        = app.loadImage("images/logos/haasLogo.png")
+    app.alphatauriLogo  = app.loadImage("images/logos/alphatauriLogo.png")
+    app.astonmartinLogo = app.loadImage("images/logos/astonmartinLogo.png")
+    app.williamsLogo    = app.loadImage("images/logos/williamsLogo.png")
+
+class Session:
+    def __init__(self, cars):
+        self.cars = cars
+    
+    def load(self):
+        return self.cars
 
 runApp(width=1280, height=720)

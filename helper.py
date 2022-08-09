@@ -15,13 +15,18 @@ def getPairs(L):
     pairs.append(end)
     return pairs
 
-# rotates a polygon
+# * ROTATE POLYGON
+# * uses formula to rotate a 2D point 
+# * https://en.wikipedia.org/wiki/Rotation_matrix#In_two_dimensions
+
+# returns list of points rotated around given center and angle
 def rotatePolygon(points, center, angle):
     cx, cy = center
     rotated = []
     angle = math.radians(angle)
     cos = math.cos(angle)
     sin = math.sin(angle)
+    # rotates each point in polygon by {angle} radians around the center
     for px, py in points:
         x = px - cx
         y = py - cy
@@ -30,25 +35,35 @@ def rotatePolygon(points, center, angle):
         rotated.append((newX + cx, newY + cy))
     return rotated
 
-# checks if two line segments AB and CD intersect
+# * INTERSECTION OF TWO LINE SEGMENTS 
+# * uses formula provided in Introduction to Algorithms, Third Edition
+# * https://sd.blackball.lv/library/Introduction_to_Algorithms_Third_Edition_(2009).pdf
+# * (33.1 pg 1036 line segment properties)
+
+# returns true if line segments AB and CD
 def linesIntersect(A, B, C, D):
-    dir1 = direction(A, B, C)
-    dir2 = direction(A, B, D)
-    dir3 = direction(C, D, A)
-    dir4 = direction(C, D, B)
-    if dir1 != dir2 and dir3 != dir4:
+    # finds 4 orientations that cover general and special cases
+    or1 = orientation(A, B, C)
+    or2 = orientation(A, B, D)
+    or3 = orientation(C, D, A)
+    or4 = orientation(C, D, B)
+    # general case
+    if or1 != or2 and or3 != or4:
         return True
-    if dir1 == 0 and pointOnLine(C, (A, B)):
+    # special cases
+    if or1 == 0 and pointOnLine(C, (A, B)):
         return True
-    if dir2 == 0 and pointOnLine(D, (A, B)):
+    if or2 == 0 and pointOnLine(D, (A, B)):
         return True
-    if dir3 == 0 and pointOnline(A, (C, D)):
+    if or3 == 0 and pointOnline(A, (C, D)):
         return True
-    if dir4 == 0 and pointOnLine(B, (C, D)):
+    if or4 == 0 and pointOnLine(B, (C, D)):
         return True
     return False
 
-def direction(A, B, C):
+# finds orientation of a triplet of points as either collinear, clockwise,
+# or counterclockwise
+def orientation(A, B, C):
     Ax, Ay = A
     Bx, By = B
     Cx, Cy = C
@@ -56,30 +71,37 @@ def direction(A, B, C):
     if val == 0:
         return "collinear"
     elif val < 0:
-        return "anti-clockwise"
+        return "counterclockwise"
     else:
         return "clockwise"
 
+# given a point and two segment endpoints checks if point is on line segment
 def pointOnLine(point, line):
     lineP1, lineP2 = line[0], line[1]
-    if (point[0] <= max(lineP1[0], lineP2[0]) and point[0] >= min(lineP1[0], lineP2[0])
-       and point[1] <= max(lineP1[1], lineP2[1]) and point[1] >= min(lineP1[1], lineP2[1])):
+    # point must be between x and y values of two endpoints
+    if (point[0] <= max(lineP1[0], lineP2[0]) and 
+        point[0] >= min(lineP1[0], lineP2[0]) and 
+        point[1] <= max(lineP1[1], lineP2[1]) and 
+        point[1] >= min(lineP1[1], lineP2[1])):
        return True
     return False
 
+# finds coefficents of line in standard form given two points
+# Ax + By + C = 0
 def line(p1, p2):
     A = (p1[1] - p2[1])
     B = (p2[0] - p1[0])
     C = (p1[0]*p2[1] - p2[0]*p1[1])
     return A, B, -C
 
-def intersectionPoint(L1, L2):
-    D  = L1[0] * L2[1] - L1[1] * L2[0]
-    Dx = L1[2] * L2[1] - L1[1] * L2[2]
-    Dy = L1[0] * L2[2] - L1[2] * L2[0]
-    if D != 0:
-        x = Dx / D
-        y = Dy / D
-        return x,y
+# finds intersection point between two lines or returns False if none
+def intersectionPoint(l1, l2):
+    d = l1[0] * l2[1] - l1[1] * l2[0]
+    dx = l1[2] * l2[1] - l1[1] * l2[2]
+    dy = l1[0] * l2[2] - l1[2] * l2[0]
+    if d != 0:
+        x = dx / d
+        y = dy / d
+        return x, y
     else:
         return False
