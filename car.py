@@ -3,6 +3,7 @@ from helper import *
 from button import *
 
 import random, time
+from pygame import mixer
 
 class Car:
     def __init__(self, app, name, x, y, color, image, logo, angle=-170,
@@ -92,6 +93,10 @@ class Car:
 
     def collision(self, app):
         if self.touchingObject(app):
+            if isinstance(self, Player):
+                mixer.music.load("sounds/carCrash.wav")
+                mixer.music.set_volume(1)
+                mixer.music.play()
             # line car is touching
             (x1, y1), (x2, y2) = self.lineIntersected[0], self.lineIntersected[1]
             
@@ -340,41 +345,30 @@ class Player(Car):
         x, y = self.xCamera + 535, self.yCamera+100
         w = 90
         l = 150
-        # car positions
-        self.rankings = []
+        # draw rows with car info
+        i = 0
         for car in app.cars:
-            self.rankings.append((car.name, car.color, car.racing, car.laps, 
-                             car.score, car.checkpointRank, car.raceTime, car.logo))
-        # sorts cars by if they have finished race, then score, then checkpoint rank
-        self.rankings.sort(key = lambda x: (x[2], -x[4], x[5]), reverse=True)
-        for index, (name, color, racing, laps, score, checkpointRank, raceTime, logo) in enumerate(self.rankings):
-            standing = ((x-w, y-l), (x+w, y+l-30*index))
-            # changes display for finished cars to white
-            if not racing:
-                color = "white"
-                fontColor = "black"
-            else:
-                fontColor = "white"
-            # displays car name and color
-            canvas.create_rectangle(standing, fill=color, outline="black")
-            canvas.create_text((x-80, y+l - 30*(index+1)+8), text=f"{name}", 
-                               fill=fontColor, anchor="nw")
+            name  = car.name
+            color = car.color
             
-            image = app.scaleImage(logo, 0.06)
-            image = ImageTk.PhotoImage(image)
-            canvas.create_image(x+70, y+l - 30*(index+1)+15, image=image)
-            # TODO: displays "FINISH" if car finished
-            # if not racing:
-            #     canvas.create_text((x+40, y+l - 30*(index+1)+8), text=f"FINISH", 
-            #                    fill=fontColor, anchor="nw")
-        # lap display
-        leadingLap = self.rankings[len(self.rankings)-1][3]
+            row = ((x-w, y-l), (x+w, y+l-30*i))
+            canvas.create_rectangle(row, fill=color, outline="black")
+            # team name
+            canvas.create_text((x-80, y+l - 30*(i+1)+8), 
+                               text=f"{name}", fill="white", anchor="nw")
+            # team logo
+            logo = ImageTk.PhotoImage(app.scaleImage(car.logo, 0.06))
+            canvas.create_image(x+70, y+l - 30*(i+1)+15, image=logo)
+            i += 1
+        # display leading lap
+        leaderLap = app.cars[-1].laps
         canvas.create_rectangle(self.xCamera+445, self.yCamera-100,
-                                self.xCamera+625, self.yCamera-50, fill="black")
-        canvas.create_text(self.xCamera + 535, self.yCamera-85, text="Leaderboard", 
-                           fill="white", font="Arial 11")
-        canvas.create_text(self.xCamera + 535, self.yCamera-65, text=f"LAP {leadingLap}/1", 
-                           fill="white", font="Arial 14 bold")
+                                self.xCamera+625, self.yCamera-50, 
+                                fill="black")
+        canvas.create_text(self.xCamera + 535, self.yCamera-85, 
+                           text="Leaderboard", fill="white", font="Arial 11")
+        canvas.create_text(self.xCamera + 535, self.yCamera-65, 
+                           text=f"LAP {leaderLap}/1", fill="white", font="Arial 14 bold")
 
     def drawMinimap(self, app, canvas):
         # minimap background

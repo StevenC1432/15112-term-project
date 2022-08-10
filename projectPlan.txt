@@ -46,3 +46,10 @@ win condition
 VERSION CONTROL
 ---------------
 backing up code via commits to Github, see github.png
+
+----------
+TP2 UPDATE
+----------
+Added car and race sounds
+Autosaving game sessions
+Dynamic difficulty

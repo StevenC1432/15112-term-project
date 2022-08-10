@@ -1,0 +1,4 @@
+Pillow==9.2.0
+requests==2.26.0
+pygame==2.1.2
+pickle-mixin==0.7.5

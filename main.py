@@ -6,8 +6,10 @@ from helper import *
 
 import math
 import pickle
+from pygame import mixer
 
 def appStarted(app):
+    mixer.init()
     # game settings
     app.canvasWidth, app.canvasHeight = 15000, 15000
     app.timerDelay = 1000//60
@@ -62,7 +64,7 @@ def drawStartLight(app, canvas):
     for i in range(5):
         x = 60 + (cx-200) + i*70
         lightCount = app.time // 200
-        if lightCount >= 5: color = "green"
+        if lightCount >= 6: color = "grey"
         elif i < lightCount: color = "red"
         else: color = "grey"
         w, h = 30, 55
@@ -80,6 +82,9 @@ def startGame(app):
     setupCars(app)
     app.startLights = True
     app.time = 0
+    mixer.music.load("sounds/startSound.wav")
+    mixer.music.set_volume(1)
+    mixer.music.play()
 
 def setupCars(app): 
     # start positions
@@ -105,7 +110,7 @@ def setupCars(app):
 
     # create car objects
     app.cars = []
-    player = "Williams"
+    player = "Mclaren"
     for index, name in enumerate(teams):
         color = teams[name][0]
         image = teams[name][1]
@@ -126,14 +131,36 @@ def timerFired(app):
                 return
             else:
                 app.startLights = False
-        # game movement
+                app.time = 0
+                mixer.music.stop()
+        # game movement 
         for car in app.cars:
             if car.racing:
                 if isinstance(car, Enemy):
                     car.selfDrive(app)
                 car.checkpoints(app)
                 car.move(app)
+        # update rankings
+        app.cars.sort(key=lambda x: (x.racing, -x.score, x.checkpointRank), reverse=True)
+        # * dynamic difficulty
+        # slow down cars in front of player, speed up cars behind player
+        if app.player in app.cars:
+            playerIndex = app.cars.index(app.player)
+            for carIndex in range(len(app.cars)):
+                car = app.cars[carIndex]
+                rankDiff = (playerIndex - carIndex)//2
+                car.maxSpeed = 30 + rankDiff
+            
         updateGameMenus(app)
+        
+        if app.player.accelerating:
+            if not app.startLights and not mixer.music.get_busy():
+                mixer.music.load("sounds/carEngine.wav")
+                mixer.music.set_volume(0.1)
+                mixer.music.play()
+        else:
+            if mixer.music.get_volume() == 0.1:
+                mixer.music.stop()
 
 def mousePressed(app, event):
     if app.screen == "menu":
@@ -164,11 +191,14 @@ def keyPressed(app, event):
         # MAP EDITING
         # app.map.userInput("keyPress", event.key)
     elif app.screen == "game":
-        if event.key == "w": app.player.pressedW()
+        if event.key == "w": app.player.pressedW()  
         if event.key == "a": app.player.pressedA()
         if event.key == "d": app.player.pressedD()
-        if event.key == "Escape": app.paused = not app.paused
-        if event.key == "l": saveGame(app)
+        if event.key == "Escape": 
+            app.paused = not app.paused
+            mixer.music.stop()
+        # if event.key == "l": app.player.racing = not app.player.racing # DEBUG
+        
 
 def saveGame(app):
     app.oldx, app.oldy = app.player.xCamera, app.player.yCamera
@@ -251,7 +281,8 @@ def buttonPressed(app, button):
         elif button.name == "Save": 
             saveGame(app)
             app.screen = "selection"
-        elif button.name == "Exit": app.screen = "selection"
+        elif button.name == "Exit": 
+            app.screen = "selection"
     elif app.screen == "game" and not app.player.racing:
         if button.name == "Exit": app.screen = "selection"
 
@@ -291,6 +322,7 @@ def drawPausedMenu(app, canvas):
 
 # draws game over screen after player finishes
 def drawGameOver(app, canvas):
+    mixer.music.stop()
     cx, cy = app.player.xCamera, app.player.yCamera
     x, y = app.player.xCamera+150, app.player.yCamera
     w = 350
@@ -299,22 +331,26 @@ def drawGameOver(app, canvas):
     canvas.create_rectangle(cx-500, cy-300, cx+500, cy+300, fill="black")
     
     # leaderboard
-    leaderName = app.player.rankings[len(app.player.rankings)-1][0]
-    leaderColor = app.player.rankings[len(app.player.rankings)-1][1]
-    leaderLogo = app.player.rankings[len(app.player.rankings)-1][7]
-    for index, (name, color, racing, laps, score, checkpointRank, raceTime, logo) in enumerate(app.player.rankings):
-        standing = ((x-w, y-l), (x+w, y+l-35*index))
-        if name == leaderName:
+    leaderName = app.cars[-1].name
+    leaderColor = app.cars[-1].color
+    leaderLogo = app.cars[-1].logo
+    i = 0
+    for car in app.cars:
+        row = ((x-w, y-l), (x+w, y+l-35*i))
+        if car.name == leaderName:
             fontColor = "black"
             rectColor = "white"
         else: 
             fontColor = "white"
             rectColor = "black"
-        canvas.create_rectangle(standing, fill=rectColor, outline="black")
-        canvas.create_text((x-310, y+l - 35*(index+1)+8), text=f"{10-index}", 
-                            fill=fontColor, font="{Open Sans} 14", anchor="nw")
-        canvas.create_text((x-280, y+l - 35*(index+1)+8), text=f"{name}", 
-                            fill=fontColor, font="{Open Sans} 14", anchor="nw")
+        canvas.create_rectangle(row, fill=rectColor, outline="black")
+        canvas.create_text((x-310, y+l - 35*(i+1)+8), 
+                           text=f"{10-i}", fill=fontColor, 
+                           font="{Open Sans} 14", anchor="nw")
+        canvas.create_text((x-280, y+l - 35*(i+1)+8), 
+                           text=f"{car.name}", fill=fontColor, 
+                           font="{Open Sans} 14", anchor="nw")
+        i += 1
         # TODO: car finish times not displaying correctly
         # if not racing:
         #     time = raceTime
