@@ -24,6 +24,10 @@ def appStarted(app):
     loadImages(app)
     setUpButtons(app)
     app.map = Map()
+    app.selectedTeam = "Redbull"
+    setupCars(app)
+    app.originalCarOrder = app.cars
+    app.teamButtons = []
     app.time = 0
     app.inCountdown = True
     app.cx, app.cy = 0, 0
@@ -58,7 +62,7 @@ def setupCars(app):
                       (x+700, y-10), (x+775, y+100)]
 
     # team information
-    teams = {"Redbull":     ["#0600EF", app.redbullCar,  app.redbullLogo], 
+    app.teams = {"Redbull":     ["#0600EF", app.redbullCar,  app.redbullLogo], 
              "Ferrari":     ["#DC0000", app.ferrariCar,  app.ferrariLogo],
              "Mercedes":    ["#00D2BE", app.mercedesCar, app.mercedesLogo],
              "Alpine":      ["#0090FF", app.alpineCar,   app.alpineLogo],
@@ -72,11 +76,11 @@ def setupCars(app):
 
     # create car objects
     app.cars = []
-    player = "Williams"
-    for index, name in enumerate(teams):
-        color = teams[name][0]
-        image = teams[name][1]
-        logo  = teams[name][2]
+    player = app.selectedTeam 
+    for index, name in enumerate(app.teams):
+        color = app.teams[name][0]
+        image = app.teams[name][1]
+        logo  = app.teams[name][2]
         (x, y) = startPositions[index]
         if name == player:
             app.player = Player(app, name, x, y, color, image, logo)
@@ -195,7 +199,9 @@ def loadGame(app):
 def timerFired(app):
     # check if game saved
     checkGameSave(app)
-    if app.screen == "game" and not app.paused:
+    if app.screen == "selection":
+        setupDifficulty(app)
+    elif app.screen == "game" and not app.paused:
         # update variables:
         # - center of screen
         app.cx, app.cy = app.player.xCamera, app.player.yCamera
@@ -209,12 +215,28 @@ def timerFired(app):
         else:
             # gameplay
             carMovement(app)
-            # dynamicDifficulty(app)
             playEngineSound(app)
         updateGameMenus(app)
 
 ##########################
 # TIMER FIRED SUBFUNCTIONS
+
+def setupDifficulty(app):
+    app.teamButtons = []
+    for i in range(5):
+        x, y = 330, 280
+        s = i*70
+        (team1, team2) = (app.originalCarOrder[i*2+1].name, 
+                          app.originalCarOrder[i*2].name)
+        j = 0
+        for team in (team1, team2):
+            if team == app.selectedTeam:
+                fill = "PaleGreen3"
+            else:
+                fill = "white"
+            app.teamButtons.append(Button(team, x+120+j, y+s, 40, 20, 
+                                          fill=fill))
+            j += 80
 
 def checkGameSave(app):
     with open('game_save.pkl', 'rb') as file:
@@ -241,15 +263,6 @@ def carMovement(app):
             car.checkpoints(app)
             car.move(app)
 
-def dynamicDifficulty(app):
-    # slow down cars in front of player, speed up cars behind player
-    if app.player in app.cars:
-        playerIndex = app.cars.index(app.player)
-        for carIndex in range(len(app.cars)):
-            car = app.cars[carIndex]
-            rankDiff = (playerIndex - carIndex)//2
-            car.maxSpeed = 30 + rankDiff
-
 def playEngineSound(app):
     if app.player.accelerating:
         if not app.inCountdown and not mixer.music.get_busy():
@@ -268,6 +281,7 @@ def mousePressed(app, event):
         isButtonPressed(app, app.menuButtons, event.x, event.y)
     elif app.screen == "selection":
         isButtonPressed(app, app.selectionButtons, event.x, event.y)
+        isButtonPressed(app, app.teamButtons, event.x, event.y)
         # MAP EDITING
         # app.map.userInput("mousePress", (event.x, event.y))
     elif app.screen == "game":
@@ -285,20 +299,31 @@ def isButtonPressed(app, buttonList, x, y):
             action = button.name
             if app.screen == "menu":
                 if action == "Start":  app.screen = "selection"
-                if action == "Quit":   app.quit()
-            if app.screen == "selection":
+                elif action == "Quit":   app.quit()
+        
+            elif app.screen == "selection":
                 if action == "Play": startGame(app)
-                if action == "Load Game" and app.gameSaved: 
+                elif action == "Load Game" and app.gameSaved: 
                     startGame(app)
                     loadGame(app)
-                if action == "Back": app.screen = "menu"
-            if app.screen == "game" and app.paused:
-                # reseting game also needs to reset canvas
-                if action == "Resume": app.paused = False
-                if action == "Save":   saveGame(app); app.screen = "selection"
-                if action == "Exit":   app.screen = "selection"
-            elif app.screen == "game" and not app.player.racing:
-                if button.name == "Exit": app.screen = "selection"
+                elif action == "Back": app.screen = "menu"
+                elif action in [team for team in app.teams]:
+                    app.selectedTeam = action
+                    print(app.selectedTeam)
+                
+            elif app.screen == "game":
+                if app.player.racing:
+                    # reseting game also needs to reset canvas
+                    if action == "Resume": app.paused = False
+                    elif action == "Save":   
+                        saveGame(app); 
+                        app.screen = "selection"
+                    elif action == "Exit":   
+                        app.screen = "selection"
+                        setupCars(app)
+                elif button.name == "Exit": 
+                    app.screen = "selection"
+                    setupCars(app)
 
 ################
 
@@ -355,25 +380,50 @@ def drawSelection(app, canvas):
     # draw selection menu
     canvas.create_rectangle(90, 100, 310, 610)
     canvas.create_rectangle(310, 100, 1180, 610)
-    canvas.create_text(200, 140, text="Main Menu", font="{Open Sans} 14")
-    # draw load game option
+    canvas.create_text(200, 140, text="Play", font="{Open Sans} 16")
+   
+    drawLoadGame(app, canvas)
+    drawDifficulty(app, canvas)
+    drawPreviewMap(app, canvas)
+    # draw buttons
+    for button in app.selectionButtons:
+        button.draw(canvas)
+
+def drawLoadGame(app, canvas):
     if app.gameSaved:
         savedText = "GAME SAVED"
         color = "PaleGreen3"
     else: 
         savedText = "NO GAME SAVED"
         color = "light coral"
-    canvas.create_rectangle(100, 400, 300, 600, fill=color)
+    canvas.create_rectangle(110, 400, 290, 590, fill=color)
     canvas.create_text(200, 450, text=savedText, font="{Open Sans} 16 bold",
                        fill="white")
+
+def drawDifficulty(app, canvas):
+    canvas.create_rectangle(310, 100, 600, 610)
+    canvas.create_text(450, 140, text="Difficulty", font="{Open Sans} 16")
+    canvas.create_text(450, 170, text="Based on car starting positions", 
+                       font="{Open Sans} 14 italic")
     
-    for button in app.selectionButtons:
-        button.draw(canvas)
+    x, y = 330, 280
+    difficulties = ["Easy", "Medium", "Hard", "Expert", "Master"]
+    for i in range(5):
+        # y-shift
+        s = i*70
+        canvas.create_rectangle(x, y-30+s, x+250, y+30+s, fill="grey")
+        # difficulty
+        canvas.create_text(x+40, y+s, text=difficulties[i], fill="white",
+                           font="{Open Sans} 12 bold")
+        # team names
+        for button in app.teamButtons:
+            button.draw(canvas)
+
+def drawPreviewMap(app, canvas):
     app.map.draw(app, canvas)
-    # map description
-    canvas.create_text(900, 150, text="AUSTRALIAN GRAND PRIX", 
+    canvas.create_text(950, 150, text="AUSTRALIAN GRAND PRIX", 
                        font="{Open Sans} 30 bold")
-    canvas.create_text(970, 190, text="ALBERT PARK, MELBOURNE", 
+    canvas.create_text(1000, 190, text="MAP: ALBERT PARK, MELBOURNE", 
                        font="{Open Sans} 18 italic")
 
 #############

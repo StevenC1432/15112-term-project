@@ -32,9 +32,9 @@ class Map:
     def draw(self, app, canvas):
         # draws map on selection screen
         if app.screen == "selection":
-            displayTrack = self.scalePolygon(self.trackLine, 0.7)
+            displayTrack = self.scalePolygon(self.trackLine, 0.6)
             for index, (x, y) in enumerate(displayTrack):
-                displayTrack[index] = (x+300, y+120)
+                displayTrack[index] = (x+510, y+200)
             canvas.create_line(displayTrack, fill="grey", width=20)
             canvas.create_line(displayTrack, fill="black", width=1, dash=(2, 2))
         # draws scaled map for game
