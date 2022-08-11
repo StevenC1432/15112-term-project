@@ -55,23 +55,26 @@ class Car:
 
     # updates car position
     def move(self, app):
-        # checks if the car has collided with another object
+        # collision check
         self.collision(app)
-        # only responds to player input if not in collision
+        # update movement variables
         if not self.inCollision:
-            if self.accelerating:
-                if self.vx < self.maxSpeed: self.vx += 1
-                if self.vy < self.maxSpeed: self.vy += 1
-            if self.rotating: 
-                if self.angle + self.rotation > 180: self.angle = -178
-                elif self.angle + self.rotation < -178: self.angle = 180
-                else: self.angle += self.rotation
-        # updates car position
+            self.movement()
+        # updates position
         self.x, self.y = self.updateCarCenter(self.angle, self.x, self.y, 
                                               self.vx, self.vy)
         self.updateCarRectangle()
-        # adds friction to car movement
+        # adds friction
         self.friction()
+    
+    def movement(self):
+        if self.accelerating:
+            if self.vx < self.maxSpeed: self.vx += 1
+            if self.vy < self.maxSpeed: self.vy += 1
+        if self.rotating: 
+            if self.angle + self.rotation > 180: self.angle = -178
+            elif self.angle + self.rotation < -178: self.angle = 180
+            else: self.angle += self.rotation
     
     ##########################
     # CALCULATING CAR POSITION
@@ -86,13 +89,13 @@ class Car:
         self.position = [topLeft, topRight, bottomRight, bottomLeft]
         self.position = rotatePolygon(self.position, (self.x, self.y), 
                                       self.angle)
-    
+
     # calculates new position of car
     def updateCarCenter(self, angle, x, y, vx, vy):
         x += math.cos(math.radians(angle)) * vx 
         y += math.sin(math.radians(angle)) * vy 
         return x, y
-    
+
     ###################
     # COLLISION PHYSICS
 
@@ -419,11 +422,12 @@ class Player(Car):
         canvas.create_line(displayPoints, width=10, fill="grey")
         # car icons on map
         for car in app.cars:
-            mX, mY = car.x//33, car.y//33
-            x = self.xCamera + mX + 290
-            y = self.yCamera + mY - 340 + 45
-            r = 5
-            canvas.create_oval(x-r, y-r, x+r, y+r, fill=car.color)
+            if car.racing:
+                mX, mY = car.x//33, car.y//33
+                x = self.xCamera + mX + 290
+                y = self.yCamera + mY - 340 + 45
+                r = 5
+                canvas.create_oval(x-r, y-r, x+r, y+r, fill=car.color)
 
     # transforms map by converting all points (x, y) into (cx+a, cy+b) where
     # cx and cy is a given point --> allows for map to be scaled and moved
@@ -446,11 +450,6 @@ class Player(Car):
         return centralize
 
 class Enemy(Car):
-    # initalize first checkpoint
-    # TODO: not updated
-    # def __init__(self, app, name, x, y, color, image, logo, angle=-170):
-    #     super().__init__(app, name, x, y, color, image, logo, angle)
-    
     # enemy driving
     def selfDrive(self, app):
         if self.checkpoint == None:

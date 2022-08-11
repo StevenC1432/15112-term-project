@@ -27,6 +27,10 @@ def appStarted(app):
     app.time = 0
     app.inCountdown = True
     app.cx, app.cy = 0, 0
+    # setup save file
+    app.gameSaved = False
+    with open('save.pkl', 'wb') as file:
+        pickle.dump([], file)
 
 # sets up new game
 def startGame(app):
@@ -88,9 +92,9 @@ def setUpButtons(app):
     quitButton  = Button("Quit", w, h+70, 50, 25)
     app.menuButtons = [startButton, quitButton]
     # selection screen buttons
-    playButton = Button("Play", w-60, h+270, 50, 25)
-    backButton = Button("Back", w+60, h+270, 50, 25)
-    loadButton = Button("Load", w+180, h+270, 50, 25)
+    playButton = Button("Play", w-440, h-120, 50, 25)
+    backButton = Button("Back", w-440, h-50, 50, 25)
+    loadButton = Button("Load Game", w-440, h+150, 50, 25)
     app.selectionButtons = [playButton, backButton, loadButton]
 
 # updates positions of game buttons as screen moves
@@ -189,12 +193,14 @@ def loadGame(app):
 ############
 
 def timerFired(app):
+    # check if game saved
+    checkGameSave(app)
     if app.screen == "game" and not app.paused:
         # update variables:
         # - center of screen
         app.cx, app.cy = app.player.xCamera, app.player.yCamera
         # - rankings
-        app.cars.sort(key=lambda x: (x.racing, -x.score, x.checkpointRank), 
+        app.cars.sort(key=lambda x: (-x.score, x.checkpointRank), 
                       reverse=True)
         
         if app.inCountdown:
@@ -205,10 +211,18 @@ def timerFired(app):
             carMovement(app)
             # dynamicDifficulty(app)
             playEngineSound(app)
-            updateGameMenus(app)
+        updateGameMenus(app)
 
 ##########################
 # TIMER FIRED SUBFUNCTIONS
+
+def checkGameSave(app):
+    with open('save.pkl', 'rb') as file:
+        saveFile = pickle.load(file)
+    if saveFile == []:
+        app.gameSaved = False
+    else:
+        app.gameSaved = True
 
 def countdownLight(app):
     app.time += 10
@@ -274,7 +288,9 @@ def isButtonPressed(app, buttonList, x, y):
                 if action == "Quit":   app.quit()
             if app.screen == "selection":
                 if action == "Play": startGame(app)
-                if action == "Load": startGame(app); loadGame(app)
+                if action == "Load Game" and app.gameSaved: 
+                    startGame(app)
+                    loadGame(app)
                 if action == "Back": app.screen = "menu"
             if app.screen == "game" and app.paused:
                 # reseting game also needs to reset canvas
@@ -336,13 +352,28 @@ def drawMenu(app, canvas):
 
 def drawSelection(app, canvas):
     canvas.configure(scrollregion = (0, 0, 1280, 640))
+    # draw selection menu
+    canvas.create_rectangle(90, 100, 310, 610)
+    canvas.create_rectangle(310, 100, 1180, 610)
+    canvas.create_text(200, 140, text="Main Menu", font="{Open Sans} 14")
+    # draw load game option
+    if app.gameSaved:
+        savedText = "GAME SAVED"
+        color = "PaleGreen3"
+    else: 
+        savedText = "NO GAME SAVED"
+        color = "light coral"
+    canvas.create_rectangle(100, 400, 300, 600, fill=color)
+    canvas.create_text(200, 450, text=savedText, font="{Open Sans} 16 bold",
+                       fill="white")
+    
     for button in app.selectionButtons:
         button.draw(canvas)
     app.map.draw(app, canvas)
     # map description
-    canvas.create_text(900, 70, text="AUSTRALIAN GRAND PRIX", 
+    canvas.create_text(900, 150, text="AUSTRALIAN GRAND PRIX", 
                        font="{Open Sans} 30 bold")
-    canvas.create_text(970, 110, text="ALBERT PARK, MELBOURNE", 
+    canvas.create_text(970, 190, text="ALBERT PARK, MELBOURNE", 
                        font="{Open Sans} 18 italic")
 
 #############

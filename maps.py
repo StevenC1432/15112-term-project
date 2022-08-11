@@ -40,8 +40,11 @@ class Map:
     def draw(self, app, canvas):
         # draws map on selection screen
         if app.screen == "selection":
-            canvas.create_line(self.trackLine, fill="grey", width=30)
-            canvas.create_line(self.trackLine, fill="black", width=2, dash=(3, 2))
+            displayTrack = self.scalePolygon(self.trackLine, 0.7)
+            for index, (x, y) in enumerate(displayTrack):
+                displayTrack[index] = (x+300, y+120)
+            canvas.create_line(displayTrack, fill="grey", width=20)
+            canvas.create_line(displayTrack, fill="black", width=1, dash=(2, 2))
             # display current mode
             # mode = "Drawing" if self.inDrawMode else "Editing"
             # canvas.create_text(app.width//2, app.height-50, text=mode)
