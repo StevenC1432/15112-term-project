@@ -265,8 +265,8 @@ class Player(Car):
         self.yCamera = 360
         self.centralizedPoints = self.centralizeMapDeconstructor(app.map.miniMap)
         self.rankings = []
-        self.totalXshift = 0
-        self.totalYshift = 0
+        self.xShift = 0
+        self.yShift = 0
         
         # loading shift
         self.loadX = 0
@@ -324,9 +324,8 @@ class Player(Car):
         canvas.yview_scroll(yShift, "units") 
 
         # keep track of total difference
-        self.totalXshift += xDiff + xShift
-        self.totalYshift += yDiff + yShift
-        print(self.totalXshift, self.totalYshift)
+        self.xShift += xDiff + xShift
+        self.yShift += yDiff + yShift
     
     # draws player HUD
     def drawHUD(self, app, canvas):

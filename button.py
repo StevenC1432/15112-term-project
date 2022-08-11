@@ -16,7 +16,7 @@ class Button:
         self.y2 = self.y + self.height
     
     # returns True if button was clicked
-    def isClicked(self, cx, cy):
+    def pressed(self, cx, cy):
         self.updatePosition()
         return (self.x1 < cx and cx < self.x2 and self.y1 < cy and cy < self.y2)
     
