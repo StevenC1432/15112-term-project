@@ -111,7 +111,7 @@ def updateGameMenus(app):
 
 # loads game images
 def loadImages(app):
-    logo = app.loadImage("images/f1logo.png")
+    logo = app.loadImage("images/logos/f1logo.png")
     app.logo = ImageTk.PhotoImage(logo)
     
     carScale = 0.06
