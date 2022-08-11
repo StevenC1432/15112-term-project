@@ -19,30 +19,16 @@ class Map:
         self.gameMap = self.scalePolygon(self.trackLine, 10)
         self.miniMap = self.scalePolygon(self.trackLine, 0.3)
         
-        # save map points to file
+        # SAVED MAP POINTS TO FILE #########################################
         # mapPoints = [self.trackLine, self.interiorWall, self.exteriorWall]
         # with open('map_points.pkl', 'wb') as file:
         #     pickle.dump(mapPoints, file)
-        
-    def userInput(self, inputType, action):
-        if inputType == "keyPress":
-            if action == "a": self.addPoint()
-            elif action == "r": self.removePoint()
-            elif action == "p": print(self.editingShape)
-            elif action == "m": self.inDrawMode = not self.inDrawMode
-            elif action == "x": self.scaleMap(self.editingShape, 10)
-            elif action == "d": self.selectedIndex = []
-            elif action == "c": self.displayDots = not self.displayDots
-            elif action == "Up": self.movePoints(0, -1)
-            elif action == "Down": self.movePoints(0, 1)
-            elif action == "Left": self.movePoints(-1, 0)
-            elif action == "Right": self.movePoints(1, 0)   
-        elif inputType == "mousePress":
-            # draws new point
-            if self.inDrawMode: self.addPoint(action)
-            # selects existing point
-            else: self.selectPoint(action)
-
+        ####################################################################
+    
+    ##########
+    # DRAW MAP
+    ##########
+    
     def draw(self, app, canvas):
         # draws map on selection screen
         if app.screen == "selection":
@@ -51,9 +37,6 @@ class Map:
                 displayTrack[index] = (x+300, y+120)
             canvas.create_line(displayTrack, fill="grey", width=20)
             canvas.create_line(displayTrack, fill="black", width=1, dash=(2, 2))
-            # display current mode
-            # mode = "Drawing" if self.inDrawMode else "Editing"
-            # canvas.create_text(app.width//2, app.height-50, text=mode)
         # draws scaled map for game
         elif app.screen == "game":
             # grass
@@ -61,6 +44,9 @@ class Map:
                                     fill="lightGreen")
             self.drawRaceTrack(canvas)
             self.drawRaceLine(canvas, self.gameMap)
+    
+    ##########################
+    # RACE TRACK LANE/BARRIERS
     
     def drawRaceTrack(self, canvas):
         # track red/white indicators
@@ -77,6 +63,9 @@ class Map:
         # barriers
         canvas.create_line(self.interiorWall, fill="grey", width=5)
         canvas.create_line(self.exteriorWall, fill="grey", width=5)
+
+    #################
+    # RACE START LINE
 
     def drawRaceLine(self, canvas, points):
         # align raceline to slope of track
@@ -99,6 +88,31 @@ class Map:
             block = rotatePolygon(block, (x, y), slope)
             if i%2 == oddStart: canvas.create_polygon(block, fill="black")
             else: canvas.create_polygon(block, fill="white")
+
+    # #######################
+    # MAP EDITOR
+    # Used to create game map
+    #########################
+    
+    # commands used to add/remove/manipulate map points
+    def userInput(self, inputType, action):
+        if inputType == "keyPress":
+            if action == "a":       self.addPoint()
+            elif action == "r":     self.removePoint()
+            elif action == "p":     print(self.editingShape)
+            elif action == "m":     self.inDrawMode = not self.inDrawMode
+            elif action == "x":     self.scaleMap(self.editingShape, 10)
+            elif action == "d":     self.selectedIndex = []
+            elif action == "c":     self.displayDots = not self.displayDots
+            elif action == "Up":    self.movePoints(0, -1)
+            elif action == "Down":  self.movePoints(0, 1)
+            elif action == "Left":  self.movePoints(-1, 0)
+            elif action == "Right": self.movePoints(1, 0)   
+        elif inputType == "mousePress":
+            # draws new point
+            if self.inDrawMode: self.addPoint(action)
+            # selects existing point
+            else: self.selectPoint(action)
 
     # draws the shape being edited in the map editor
     def drawEditingShape(self, canvas, shape, r=2):

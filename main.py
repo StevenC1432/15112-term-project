@@ -29,7 +29,7 @@ def appStarted(app):
     app.cx, app.cy = 0, 0
     # setup save file
     app.gameSaved = False
-    with open('save.pkl', 'wb') as file:
+    with open('game_save.pkl', 'wb') as file:
         pickle.dump([], file)
 
 # sets up new game
@@ -157,11 +157,11 @@ def saveGame(app):
 
     saveFile = [(app.cx, app.cy), (app.player.xShift, app.player.yShift), 
                 carInfo]
-    with open('save.pkl', 'wb') as file:
+    with open('game_save.pkl', 'wb') as file:
         pickle.dump(saveFile, file)
 
 def loadGame(app):
-    with open('save.pkl', 'rb') as file:
+    with open('game_save.pkl', 'rb') as file:
         saveFile = pickle.load(file)
     
     (app.player.xCamera, app.player.yCamera) = saveFile[0]
@@ -217,7 +217,7 @@ def timerFired(app):
 # TIMER FIRED SUBFUNCTIONS
 
 def checkGameSave(app):
-    with open('save.pkl', 'rb') as file:
+    with open('game_save.pkl', 'rb') as file:
         saveFile = pickle.load(file)
     if saveFile == []:
         app.gameSaved = False
