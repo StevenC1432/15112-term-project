@@ -96,8 +96,8 @@ def setUpButtons(app):
     quitButton  = Button("Quit", w, h+70, 50, 25)
     app.menuButtons = [startButton, quitButton]
     # selection screen buttons
-    playButton = Button("Play", w-440, h-120, 50, 25)
-    backButton = Button("Back", w-440, h-50, 50, 25)
+    playButton = Button("Play", w-440, h-80, 50, 25)
+    backButton = Button("Back", w-440, h-10, 50, 25)
     loadButton = Button("Load Game", w-440, h+150, 50, 25)
     app.selectionButtons = [playButton, backButton, loadButton]
 
@@ -381,6 +381,11 @@ def drawSelection(app, canvas):
     canvas.create_rectangle(90, 100, 310, 610)
     canvas.create_rectangle(310, 100, 1180, 610)
     canvas.create_text(200, 140, text="Play", font="{Open Sans} 16")
+    
+    cmds = "W: accelerate\nA: turn left\nD: turn right\nEsc: pause menu"  
+
+    canvas.create_text(200, 200, text=f"Key Commands\n{cmds}",
+                       font="{Open Sans} 12 italic")
    
     drawLoadGame(app, canvas)
     drawDifficulty(app, canvas)
