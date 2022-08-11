@@ -46,8 +46,11 @@ class Car:
 
     # draws car on canvas
     def draw(self, app, canvas):
+        # bounding box:
         # canvas.create_polygon(self.position, fill=self.color)
-        carImage = ImageTk.PhotoImage(self.image.rotate(-self.angle, expand=True)) 
+        # car image: 
+        carImage = ImageTk.PhotoImage(self.image.rotate(-self.angle, 
+                                                        expand=True)) 
         canvas.create_image(self.x, self.y, image=carImage)
 
     # updates car position
@@ -64,13 +67,14 @@ class Car:
                 elif self.angle + self.rotation < -178: self.angle = 180
                 else: self.angle += self.rotation
         # updates car position
-        self.x, self.y = self.updateCarCenter(self.angle, self.x, self.y, self.vx, self.vy)
+        self.x, self.y = self.updateCarCenter(self.angle, self.x, self.y, 
+                                              self.vx, self.vy)
         self.updateCarRectangle()
         # adds friction to car movement
         self.friction()
     
-    # * ########################
-    # * CALCULATING CAR POSITION
+    ##########################
+    # CALCULATING CAR POSITION
     
     # creates and rotates car rectangle based on center
     def updateCarRectangle(self):
@@ -80,7 +84,8 @@ class Car:
         bottomRight = (self.x+w, self.y+l)
         bottomLeft = (self.x-w, self.y+l)
         self.position = [topLeft, topRight, bottomRight, bottomLeft]
-        self.position = rotatePolygon(self.position, (self.x, self.y), self.angle)
+        self.position = rotatePolygon(self.position, (self.x, self.y), 
+                                      self.angle)
     
     # calculates new position of car
     def updateCarCenter(self, angle, x, y, vx, vy):
@@ -88,51 +93,63 @@ class Car:
         y += math.sin(math.radians(angle)) * vy 
         return x, y
     
-    # * #################
-    # * COLLISION PHYSICS
+    ###################
+    # COLLISION PHYSICS
 
     def collision(self, app):
         if self.touchingObject(app):
+            # play crash sound if player collided
             if isinstance(self, Player):
-                mixer.music.load("sounds/carCrash.wav")
-                mixer.music.set_volume(1)
-                mixer.music.play()
-            # line car is touching
-            (x1, y1), (x2, y2) = self.lineIntersected[0], self.lineIntersected[1]
-            
-            # * ANGLE AFTER REFLECTION
-            # treat collision as bouncing off a flat surface with the angle
-            # of the tangent at the point of contact
+                self.playCrashSound()
+            # get points of the line the car is intersecting
+            ((x1, y1), (x2, y2)) = (self.lineIntersected[0], 
+                                    self.lineIntersected[1])
+            dx = x1 - x2
+            dy = y1 - y2
+            # calculate new angle and velocity after collision
             if self.collisionType == "Car":
-                dx = x1 - x2
-                dy = y1 - y2
-                tangent = math.atan2(dy, dx)
-                self.angle = 2 * tangent - self.angle
-                self.collidedCar.angle = 2 * tangent - self.collidedCar.angle
-                # account for existing overlap when collision detected
-                a = 0.5 * math.pi + tangent
-                self.x += math.sin(a)
-                self.y -= math.cos(a)
-                self.collidedCar.x -= math.sin(a)
-                self.collidedCar.y += math.cos(a)
-            
-            # * REFLECTION OF VECTOR 
-            # * Uses formula provided by the Phong Reflection Model
-            # * https://en.wikipedia.org/wiki/Phong_reflection_model
-           
-            # find angle of reflecting surface 
-            rise, run = (y1-y2), (x1-x2)
-            angle = math.atan2(rise, run)
-            # find surface normal
-            nx, ny = self.lineNormal(angle)
-            # find dot product of car vector and surface normal
-            dot = self.vx * nx + self.vy * ny 
-            # find reflection vector
-            self.vx = self.vx - 2 * dot * nx
-            self.vy = self.vy - 2 * dot * ny
-            # add elasticity
-            self.vx *= 0.5
-            self.vy *= 0.5
+                self.collisionAngle(dx, dy)
+            self.collisionVelocity(dx, dy)
+    
+    def playCrashSound(self):
+        mixer.music.load("sounds/carCrash.wav")
+        mixer.music.set_volume(1)
+        mixer.music.play()
+    
+    ###############################################################
+    # ANGLE AFTER REFLECTION
+    # treat collision as bouncing off a flat surface with the angle
+    # of the tangent at the point of contact
+    ###############################################################
+    def collisionAngle(self, dx, dy):
+        tangent = math.atan2(dy, dx)
+        self.angle = 2 * tangent - self.angle
+        self.collidedCar.angle = 2 * tangent - self.collidedCar.angle
+        # account for existing overlap when collision detected
+        a = 0.5 * math.pi + tangent
+        self.x += math.sin(a)
+        self.y -= math.cos(a)
+        self.collidedCar.x -= math.sin(a)
+        self.collidedCar.y += math.cos(a)
+    
+    ######################################################
+    # REFLECTION OF VECTOR 
+    # Uses formula provided by the Phong Reflection Model
+    # https://en.wikipedia.org/wiki/Phong_reflection_model
+    ######################################################
+    def collisionVelocity(self, dx, dy):
+        # find angle of reflecting surface 
+        angle = math.atan2(dy, dx)
+        # find surface normal
+        nx, ny = self.lineNormal(angle)
+        # find dot product of car vector and surface normal
+        dot = self.vx * nx + self.vy * ny 
+        # find reflection vector
+        self.vx = self.vx - 2 * dot * nx
+        self.vy = self.vy - 2 * dot * ny
+        # add elasticity
+        self.vx *= 0.5
+        self.vy *= 0.5
 
     # finds normal vector of line
     def lineNormal(self, angle):
@@ -143,8 +160,9 @@ class Car:
         ny = math.cos(angle)
         return nx, ny
     
-    # * ######################      
-    # * CHECKING FOR COLLISION
+    ########################
+    # CHECKING FOR COLLISION
+    ########################
     
     # finds which object the car is touching
     def touchingObject(self, app):
@@ -158,17 +176,20 @@ class Car:
     def stillInCollsion(self, app):
         # if the car is touching another object, check if it is still touching
         if self.collisionType == "Car":
-            if not self.carIntersectLine(app, self.position, self.collidedCar.position):
+            if not self.carIntersectLine(app, self.position, 
+                                         self.collidedCar.position):
                 self.inCollision = False
         else:
             # loop through wall list and find intersection
-            if not self.carIntersectLine(app, self.position, self.lineIntersected):
+            if not self.carIntersectLine(app, self.position, 
+                                         self.lineIntersected):
                 self.inCollision = False
     
     # returns True is car is colliding with another car
     def inCarCollision(self, app):
         for car in app.cars:
-            if car.name != self.name and self.carIntersectLine(app, self.position, car.position):
+            if (car.name != self.name and 
+                self.carIntersectLine(app, self.position, car.position)):
                 self.collisionType = "Car"
                 self.collidedCar = car
                 return True
@@ -189,30 +210,26 @@ class Car:
         objectLines = getPairs(objectPoints)
         for objectLine in objectLines:
             for carLine in carLines:
-                if (linesIntersect(carLine[0], carLine[1], objectLine[0], objectLine[1])):
-                    line1, line2 = line(carLine[0], carLine[1]), line(objectLine[0], objectLine[1])
+                if (linesIntersect(carLine[0], carLine[1], 
+                                   objectLine[0], objectLine[1])):
+                    (line1, line2) = (line(carLine[0], carLine[1]), 
+                                      line(objectLine[0], objectLine[1]))
                     self.xWall, self.yWall = intersectionPoint(line1, line2)
                     self.lineIntersected = objectLine
                     self.inCollision = True
                     return True
         return False
 
-    # adds friction to car velocity
-    def friction(self):
-        if self.vx > 0: self.vx -= 0.1
-        elif self.vx < 0: self.vx += 0.1
-        if self.vy > 0: self.vy -= 0.1
-        elif self.vy < 0: self.vy += 0.1
-
-    # * ###############
-    # * CAR CHECKPOINTS
+    #################
+    # CAR CHECKPOINTS
     
     # creates checkpoints at track vertices to guide car
     def checkpoints(self, app):
         for i in range(len(self.trackPoints)):
             # after car reaches checkpoint changes to next checkpoint
             atCheckpoint = False
-            if (distance((self.x, self.y), self.trackPoints[i]) < self.trackWidth):
+            if (distance((self.x, self.y), self.trackPoints[i]) < 
+                self.trackWidth):
                 # if finished lap
                 if len(self.visitedCheckpoints) == len(self.trackPoints)-1:
                     self.visitedCheckpoints = []
@@ -223,7 +240,8 @@ class Car:
 
                 # if car finishes lap
                 if (self.score >= len(self.trackPoints) and 
-                    self.trackPoints[i] == self.trackPoints[0] and atCheckpoint):
+                    self.trackPoints[i] == self.trackPoints[0] and 
+                    atCheckpoint):
                     self.finishedLap(app)
                     # laps only increase on first contact, not continously
                     atCheckpoint = False
@@ -251,6 +269,15 @@ class Car:
             self.racing = False
         else:
             self.laps += 1
+
+    #################
+
+    # adds friction to car velocity
+    def friction(self):
+        if self.vx > 0: self.vx -= 0.1
+        elif self.vx < 0: self.vx += 0.1
+        if self.vy > 0: self.vy -= 0.1
+        elif self.vy < 0: self.vy += 0.1
         
 
 class Player(Car):
@@ -263,7 +290,7 @@ class Player(Car):
         self.yOldPos = 360
         self.xCamera = 640
         self.yCamera = 360
-        self.centralizedPoints = self.centralizeMapDeconstructor(app.map.miniMap)
+        self.centralizedPoints = self.alignMapPoints(app.map.miniMap)
         self.rankings = []
         self.xShift = 0
         self.yShift = 0
@@ -299,7 +326,8 @@ class Player(Car):
         # draw player info
         self.drawHUD(app, canvas)
         # draw car image
-        carImage = ImageTk.PhotoImage(self.image.rotate(-self.angle, expand=True)) 
+        carImage = ImageTk.PhotoImage(self.image.rotate(-self.angle, 
+                                                        expand=True)) 
         canvas.create_image(self.x, self.y, image=carImage)
     
     def updateCamera(self, canvas):
@@ -330,7 +358,8 @@ class Player(Car):
     # draws player HUD
     def drawHUD(self, app, canvas):
         r = 5
-        canvas.create_oval(self.xCamera-5, self.yCamera-5, self.xCamera+5, self.yCamera+5)
+        canvas.create_oval(self.xCamera-5, self.yCamera-5, 
+                           self.xCamera+5, self.yCamera+5)
         # DISPLAY CAR STATS (DEBUG)
         # canvas.create_text(self.xCamera, self.yCamera+300, anchor="s",
         #                     text=f"Position: ({int(self.x)}, {int(self.y)}) \
@@ -367,7 +396,8 @@ class Player(Car):
         canvas.create_text(self.xCamera + 535, self.yCamera-85, 
                            text="Leaderboard", fill="white", font="Arial 11")
         canvas.create_text(self.xCamera + 535, self.yCamera-65, 
-                           text=f"LAP {leaderLap}/1", fill="white", font="Arial 14 bold")
+                           text=f"LAP {leaderLap}/1", fill="white", 
+                           font="Arial 14 bold")
 
     def drawMinimap(self, app, canvas):
         # minimap background
@@ -380,10 +410,11 @@ class Player(Car):
         # minimap text
         canvas.create_text(self.xCamera + 480, self.yCamera-325, text="Map", 
                            fill="white", font="Arial 11")
-        canvas.create_text(self.xCamera + 480, self.yCamera-310, text="ALBERT PARK", 
-                           fill="white", font="Arial 14 bold")
+        canvas.create_text(self.xCamera + 480, self.yCamera-310, 
+                           text="ALBERT PARK", fill="white", 
+                           font="Arial 14 bold")
         # minimap track
-        displayPoints = self.centralizeMapConstructor(self.centralizedPoints)
+        displayPoints = self.centralizeMapPoints(self.centralizedPoints)
         canvas.create_line(displayPoints, width=12, fill="black")
         canvas.create_line(displayPoints, width=10, fill="grey")
         # car icons on map
@@ -396,7 +427,7 @@ class Player(Car):
 
     # transforms map by converting all points (x, y) into (cx+a, cy+b) where
     # cx and cy is a given point --> allows for map to be scaled and moved
-    def centralizeMapConstructor(self, centralizedPoints):
+    def centralizeMapPoints(self, centralizedPoints):
         displayPoints = []
         for (dx, dy) in centralizedPoints:
             x = self.xOldPos + dx - 350
@@ -406,7 +437,7 @@ class Player(Car):
     
     # takes in transformed map and sets center to screen center, returns list of
     # drawable points
-    def centralizeMapDeconstructor(self, mapPoints):
+    def alignMapPoints(self, mapPoints):
         centralize = []
         for (x, y) in mapPoints:
             dx = self.xCamera + x
@@ -428,7 +459,8 @@ class Enemy(Car):
         # get future positions of car after left/right shift
         leftDist = distance(leftPos, self.checkpoint)
         rightDist = distance(rightPos, self.checkpoint)
-        # checks whether moving left or right places the car closer to the next checkpoint
+        # checks whether moving left or right places the car closer to the next 
+        # checkpoint
         # (distance must be signficant, to reduce wiggling)
         if leftDist - rightDist < -10:
             self.rotating = True
@@ -455,7 +487,8 @@ class Enemy(Car):
             if point in self.visitedCheckpoints:
                 canvas.create_oval(x-r, y-r, x+r, y+r, outline="red", width=3)
             elif point == self.checkpoint:
-                canvas.create_oval(x-r, y-r, x+r, y+r, outline="orange", width=3)
+                canvas.create_oval(x-r, y-r, x+r, y+r, outline="orange", 
+                                   width=3)
             else:
                 canvas.create_oval(x-r, y-r, x+r, y+r, outline="green", width=3)
         # draw sensors

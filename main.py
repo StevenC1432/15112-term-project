@@ -203,7 +203,7 @@ def timerFired(app):
         else:
             # gameplay
             carMovement(app)
-            dynamicDifficulty(app)
+            # dynamicDifficulty(app)
             playEngineSound(app)
             updateGameMenus(app)
 
