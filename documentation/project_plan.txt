@@ -1,0 +1,60 @@
+-------------------
+PROJECT DESCRIPTION
+-------------------
+Name: Formula 15-112
+Top-down car racing game based off of Formula 1
+
+---------------
+STRUCTURAL PLAN
+---------------
+main.py
+ - app and canvas 
+
+car.py
+ - car class
+ - player subclass
+ - enemy subclass
+
+maps.py
+ - map class
+
+button.py
+ - button class
+
+helper.py
+ - helper functions
+
+----------------
+ALGORITHMIC PLAN
+----------------
+* car physics (most complex)
+ - update car position based on angle and acceleration
+ - object collision: 
+    - find point of intersection and use the tangent of that
+      point as the line of reflection
+    - use Phong's Reflection Model to calculate new x and y velocities
+
+enemy ai
+ - checkpoints along the track
+ - enemy cars calculate possible future positions after left/right turn
+   and make turn if it places the car closer to the next checkpoint
+
+win condition
+ - car finishes race after completing certain amount of laps
+
+---------------
+VERSION CONTROL
+---------------
+backing up code via commits to Github, see github.png
+
+----------
+TP2 UPDATE
+----------
+Added car and race sounds
+Autosaving game sessions
+
+
+----------
+TP3 UPDATE
+----------
+Added team selection / difficulty settings
