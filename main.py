@@ -45,7 +45,7 @@ def startGame(app):
     app.inCountdown = True
     app.time = 0
     mixer.music.load("sounds/startSound.wav")
-    mixer.music.set_volume(1)
+    mixer.music.set_volume(0.1)
     mixer.music.play()
 
 #######################
@@ -267,10 +267,10 @@ def playEngineSound(app):
     if app.player.accelerating:
         if not app.inCountdown and not mixer.music.get_busy():
             mixer.music.load("sounds/carEngine.wav")
-            mixer.music.set_volume(0.05)
+            mixer.music.set_volume(0.01)
             mixer.music.play()
     else:
-        if mixer.music.get_volume() == 0.05:
+        if mixer.music.get_volume() == 0.01:
             mixer.music.stop()
 
 ################

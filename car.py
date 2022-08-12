@@ -116,7 +116,7 @@ class Car:
     
     def playCrashSound(self):
         mixer.music.load("sounds/carCrash.wav")
-        mixer.music.set_volume(1)
+        mixer.music.set_volume(0.1)
         mixer.music.play()
     
     ###############################################################
